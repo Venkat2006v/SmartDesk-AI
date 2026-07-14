@@ -1,22 +1,102 @@
-"""Ticket Status Agent — looks up existing tickets for a user by email.
+"""Ticket Status Agent — look up tickets by email address.
 
-TODO: implement the flow:
-1. Ensure state["email"] is present and valid (guardrails/validation.py
-   is_valid_email). If missing, ask the user for it.
-2. Call your TicketingClient.get_tickets_by_email(email).
-3. Handle three distinct cases in the response:
-   - Zero tickets: tell the user clearly, no tickets found.
-   - One ticket: report its status directly.
-   - Multiple tickets: summarize all of them (e.g. a short list with id +
-     status), don't just report the first.
-4. Set state["response"] accordingly.
+Flow:
+  1. Get email from state["email"] or extract from query via LLM.
+  2. Validate the email with is_valid_email().
+  3. Call ticketing_client.get_tickets_by_email(email).
+  4. Format a clear response for 0 / 1 / many tickets.
 """
 
 from __future__ import annotations
 
+from smartdesk.agents._llm import call_llm
+from smartdesk.guardrails.validation import is_valid_email
 from smartdesk.orchestrator.state import AgentState
+from smartdesk.tools.ticketing import get_ticketing_client
+
+_EXTRACT_EMAIL_SYSTEM = """You are a helpdesk assistant. Extract the email address from the user's message.
+Respond with ONLY the email address, nothing else.
+If no email is found, respond with an empty string "".
+"""
 
 
 def ticket_status_node(state: AgentState) -> AgentState:
-    """Orchestrator-facing node for ticket status lookups."""
-    raise NotImplementedError("TODO: implement ticket status agent")
+    """LangGraph node: look up tickets and format a response."""
+    query = state.get("query", "")
+
+    # ── Step 1: Resolve email ──────────────────────────────────────────────
+    email = state.get("email") or ""
+
+    if not is_valid_email(email):
+        # Try to extract email from the query itself
+        email = _extract_email_from_query(query)
+
+    if not is_valid_email(email):
+        return {
+            **state,
+            "response": (
+                "I need your email address to look up your tickets. "
+                "Please provide it and I'll check right away."
+            ),
+        }
+
+    # ── Step 2: Fetch tickets ──────────────────────────────────────────────
+    client = get_ticketing_client()
+
+    try:
+        tickets = client.get_tickets_by_email(email)
+    except Exception as exc:
+        return {
+            **state,
+            "email": email,
+            "response": (
+                f"I ran into an error looking up tickets for {email}: {exc}. "
+                "Please try again or contact the helpdesk directly."
+            ),
+        }
+
+    # ── Step 3: Format response ────────────────────────────────────────────
+    response = _format_tickets(email, tickets)
+    print(f"[ticket_status] Found {len(tickets)} ticket(s) for {email!r}")
+
+    return {**state, "email": email, "response": response}
+
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+def _format_tickets(email: str, tickets: list) -> str:
+    """Build a human-readable ticket list."""
+    if not tickets:
+        return (
+            f"I found no open tickets for **{email}**. "
+            "If you expected to see a ticket here, double-check your email address "
+            "or create a new ticket."
+        )
+
+    if len(tickets) == 1:
+        t = tickets[0]
+        return (
+            f"You have **1 ticket** on file for {email}:\n\n"
+            f"  • **{t['id']}** — {t['summary']}\n"
+            f"    Status : {t['status']}\n"
+            f"    URL    : {t['url']}"
+        )
+
+    lines = [f"You have **{len(tickets)} tickets** on file for {email}:\n"]
+    for t in tickets:
+        lines.append(
+            f"  • **{t['id']}** [{t['status']}] — {t['summary']}\n"
+            f"    {t['url']}"
+        )
+    return "\n".join(lines)
+
+
+def _extract_email_from_query(query: str) -> str:
+    """Use LLM to pull an email address out of the query text."""
+    try:
+        result = call_llm(system=_EXTRACT_EMAIL_SYSTEM, user=query, temperature=0.0)
+        return result.strip()
+    except Exception:
+        return ""

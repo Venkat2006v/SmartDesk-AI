@@ -1,26 +1,65 @@
-"""IT Knowledge Agent — answers IT questions grounded in the IT knowledge base.
+"""IT Knowledge Agent — RAG-grounded answers over the IT knowledge base.
 
-Deliberately a separate agent from hr_knowledge_agent.py (rather than one
-generic "knowledge agent" with a domain parameter) so the project
-demonstrates genuine multi-agent specialization, per the capstone's
-"multi-agent IT/HR split" bonus item. The two agents can share helper
-functions (e.g. via rag/retriever.py) without being the same agent.
-
-TODO: implement the flow:
-1. retrieve(state["query"], domain="it") -> retrieved chunks
-2. decide_escalation(...) -> should this be answered or routed to a ticket?
-3. If answerable: build_grounded_prompt(...) -> call the LLM -> set
-   state["response"]
-4. If not: set state["should_escalate"] = True and a helpful response
-   explaining you couldn't find a confident answer (the orchestrator can
-   then offer to create a ticket).
+Flow:
+  1. retrieve(query, domain="it")          → chunks
+  2. decide_escalation(query, chunks)       → (should_escalate, confidence)
+  3a. Answerable: build prompt → call LLM → check_grounding → state["response"]
+  3b. Escalate:   honest "I don't know" + should_escalate=True in state
 """
 
 from __future__ import annotations
 
+from smartdesk.agents._llm import call_llm
+from smartdesk.guardrails.grounding import (
+    GROUNDED_SYSTEM_INSTRUCTIONS,
+    build_grounded_prompt,
+    check_grounding,
+)
 from smartdesk.orchestrator.state import AgentState
+from smartdesk.rag.retriever import decide_escalation, retrieve
+
+_ESCALATION_MESSAGE = (
+    "I searched our IT knowledge base but couldn't find a confident answer to your question. "
+    "This may be outside our documented topics, or the information may need to be added. "
+    "I recommend creating a support ticket so an IT specialist can assist you directly."
+)
 
 
 def it_knowledge_node(state: AgentState) -> AgentState:
-    """Orchestrator-facing node for IT knowledge-base queries."""
-    raise NotImplementedError("TODO: implement IT knowledge agent (RAG)")
+    """LangGraph node: retrieve IT docs, generate grounded answer or escalate."""
+    query = state.get("query", "")
+    print(f"[it_kb] Retrieving for: {query!r}")
+
+    # 1. Retrieve
+    chunks = retrieve(query, domain="it")
+    print(f"[it_kb] Retrieved {len(chunks)} chunks "
+          f"(top score: {chunks[0]['score']:.3f})" if chunks else "[it_kb] No chunks found")
+
+    # 2. Escalation decision
+    should_escalate, confidence = decide_escalation(query, chunks)
+    print(f"[it_kb] escalate={should_escalate}, confidence={confidence:.3f}")
+
+    if should_escalate:
+        return {
+            **state,
+            "retrieved_chunks": chunks,
+            "confidence_score": confidence,
+            "should_escalate": True,
+            "response": _ESCALATION_MESSAGE,
+        }
+
+    # 3. Build grounded LLM answer
+    user_prompt = build_grounded_prompt(query, chunks)
+    answer = call_llm(system=GROUNDED_SYSTEM_INSTRUCTIONS, user=user_prompt, temperature=0.2)
+
+    # Optional grounding check — warn but don't block
+    if not check_grounding(answer, chunks):
+        print("[it_kb] ⚠ Grounding check failed — answer may contain hallucinated content")
+
+    return {
+        **state,
+        "retrieved_chunks": chunks,
+        "confidence_score": confidence,
+        "should_escalate": False,
+        "response": answer,
+    }

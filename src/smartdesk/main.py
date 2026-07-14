@@ -1,37 +1,119 @@
 """CLI entry point.
 
-Run with: python -m smartdesk.main
+Run with:
+    cd SmartDesk-AI
+    python -m smartdesk.main
 
-TODO: once orchestrator/graph.py is implemented, wire this loop up to call
-it per turn (build the AgentState, run the graph, print the response, and
-carry over conversation/session state turn to turn).
+Or after `pip install -e .`:
+    smartdesk
+
+Prerequisites:
+  1. Fill in .env (LLM_API_KEY, EMBEDDING_PROVIDER, etc.)
+  2. Build the knowledge base:  python scripts/build_knowledge_base.py
+  3. Then run this file.
+
+Session flow:
+  - Ask for email upfront (reused for all ticket operations this session).
+  - Each user turn invokes the full LangGraph pipeline.
+  - Type 'exit' or Ctrl-C to quit.
 """
 
 from __future__ import annotations
 
+import sys
+
+
+def _print_banner() -> None:
+    print("=" * 60)
+    print("  SmartDesk AI — IT & HR Helpdesk Assistant")
+    print("  Type 'exit' to quit | 'help' for example queries")
+    print("=" * 60)
+
+
+def _print_help() -> None:
+    print(
+        "\nExample queries:"
+        "\n  IT  : How do I connect to the VPN?"
+        "\n  IT  : Walk me through setting up MFA."
+        "\n  HR  : How many PTO days do I get per year?"
+        "\n  HR  : When is benefits open enrollment?"
+        "\n  TKT : Create a ticket — my laptop won't connect to Wi-Fi."
+        "\n  TKT : What tickets do I have open? (uses your session email)"
+        "\n"
+    )
+
 
 def main() -> None:
-    print("SmartDesk AI — type 'exit' to quit.")
-    print("[TODO] wire this up to src/smartdesk/orchestrator/graph.py")
+    _print_banner()
 
+    # ── Lazy import — keeps startup fast if running --help ──────────────────
+    try:
+        from smartdesk.orchestrator.graph import build_orchestrator, run_once
+    except ImportError as exc:
+        print(f"[error] Missing dependency: {exc}")
+        print("Run: pip install -e '.[dev]'")
+        sys.exit(1)
+
+    # ── Build graph once ────────────────────────────────────────────────────
+    print("\n[startup] Loading knowledge base and building agent graph...")
+    try:
+        graph = build_orchestrator()
+    except Exception as exc:
+        print(f"[error] Failed to build orchestrator: {exc}")
+        print("Make sure you have run: python scripts/build_knowledge_base.py")
+        sys.exit(1)
+    print("[startup] Ready.\n")
+
+    # ── Session email (optional — agents will ask per-turn if not provided) ─
+    try:
+        email_input = input(
+            "Your email (press Enter to skip — required for ticket operations): "
+        ).strip()
+    except (EOFError, KeyboardInterrupt):
+        print("\nbye.")
+        return
+    session_email: str | None = email_input if email_input else None
+
+    # ── Main REPL loop ──────────────────────────────────────────────────────
+    print()
     while True:
         try:
-            query = input("\nyou> ").strip()
+            raw = input("you> ").strip()
         except (EOFError, KeyboardInterrupt):
             print("\nbye.")
             break
 
-        if query.lower() in {"exit", "quit"}:
+        if not raw:
+            continue
+        if raw.lower() in {"exit", "quit", "q"}:
+            print("bye.")
             break
-        if not query:
+        if raw.lower() in {"help", "?"}:
+            _print_help()
             continue
 
-        # TODO: replace with a real call once the orchestrator exists, e.g.:
-        #   from smartdesk.orchestrator.graph import build_orchestrator, run_once
-        #   graph = build_orchestrator()
-        #   state = run_once(graph, {"query": query})
-        #   print(state.get("response"))
-        print("[TODO] no orchestrator wired up yet — see graph.py")
+        # Build initial state for this turn
+        initial_state = {
+            "query": raw,
+            "email": session_email,
+        }
+
+        try:
+            result = run_once(graph, initial_state)
+        except KeyboardInterrupt:
+            print("\n[interrupted]")
+            continue
+        except Exception as exc:
+            print(f"[error] {exc}")
+            continue
+
+        # Update session email if an agent resolved/validated it this turn
+        if result.get("email"):
+            session_email = result["email"]
+
+        # Print response
+        response = result.get("response", "[no response]")
+        print(f"\nSmartDesk: {response}\n")
 
 
 if __name__ == "__main__":

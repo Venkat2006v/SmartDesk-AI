@@ -1,63 +1,135 @@
-"""Embedding helpers — dense (semantic search) and sparse (the keyword
-half of Qdrant's hybrid search; see docs/DESIGN_DECISIONS.md).
+"""Embedding helpers — dense (semantic) + sparse (keyword/hybrid).
 
-TODO: implement using whichever dense embedding provider you chose
-(config.settings.embedding_provider / embedding_model), plus a sparse
-model for hybrid search. fastembed bundles ready-to-use sparse models
-(BM25, SPLADE++, miniCOIL) so you don't need to train anything:
+Naming convention:
+  make_*   → batch input, used at INSERT time (add_documents)
+  query_*  → single input, used at QUERY time (similarity_search)
 
-    from fastembed import SparseTextEmbedding
-    sparse_model = SparseTextEmbedding(
-        model_name=settings.sparse_embedding_model or "Qdrant/bm25"
-    )
-    sparse_embeddings = list(sparse_model.embed(texts))  # indices + values per text
+Dense provider is controlled by EMBEDDING_PROVIDER + EMBEDDING_MODEL in .env.
+Supported: "openai" | "fastembed"
 
-Keep dense/sparse functions batch-friendly so vector_store.py and
-retriever.py don't need to know which provider/model is behind them.
+Sparse always uses fastembed (BM25/SPLADE/miniCOIL).
+Model is controlled by SPARSE_EMBEDDING_MODEL (defaults to "Qdrant/bm25").
+
+fastembed models download on first use (~50-200 MB). Subsequent calls use
+the cached model — no re-download.
 """
 
 from __future__ import annotations
 
 from typing import Dict, List
 
+from smartdesk.config import settings
 
-def embed_texts(texts: List[str]) -> List[List[float]]:
-    """Embed a batch of documents/chunks (dense) for indexing.
+# ---------------------------------------------------------------------------
+# Module-level model cache — avoids reloading fastembed models on every call
+# ---------------------------------------------------------------------------
+_dense_model_cache: dict = {}
+_sparse_model_cache: dict = {}
 
-    TODO: implement (OpenAI/Cohere/local sentence-transformers/etc.)
+
+# ---------------------------------------------------------------------------
+# Dense embeddings
+# ---------------------------------------------------------------------------
+
+def make_dense_embedding(texts: List[str]) -> List[List[float]]:
+    """Dense-embed a batch of document chunks for indexing.
+
+    Called by vector_store.add_documents() at insert time.
+    Returns one float vector per text.
     """
-    raise NotImplementedError("TODO: implement document embedding")
+    provider = settings.embedding_provider.lower()
+
+    if provider == "openai":
+        return _openai_embed(texts)
+    elif provider == "fastembed":
+        return _fastembed_dense_embed(texts)
+    else:
+        raise ValueError(
+            f"Unsupported EMBEDDING_PROVIDER: {provider!r}. "
+            "Set to 'openai' or 'fastembed' in .env."
+        )
 
 
-def embed_query(text: str) -> List[float]:
-    """Embed a single query string (dense) for retrieval.
+def query_dense_embedding(text: str) -> List[float]:
+    """Dense-embed a single query string for retrieval.
 
-    Some providers use different embedding modes/instructions for queries
-    vs. documents — keep this separate from embed_texts even if today it
-    just calls the same underlying API.
-
-    TODO: implement.
+    Called by vector_store.similarity_search() at query time.
     """
-    raise NotImplementedError("TODO: implement query embedding")
+    return make_dense_embedding([text])[0]
 
 
-def embed_sparse(texts: List[str]) -> List[Dict[str, list]]:
-    """Compute sparse vectors for a batch of documents/chunks — the
-    keyword half of Qdrant's hybrid search. Return shape should match
-    whatever vector_store.py expects when building
-    qdrant_client.models.SparseVector(indices=..., values=...), e.g.
-    [{"indices": [...], "values": [...]}, ...].
+# ---------------------------------------------------------------------------
+# Sparse embeddings (always fastembed)
+# ---------------------------------------------------------------------------
 
-    TODO: implement, e.g. via fastembed.SparseTextEmbedding (see module
-    docstring).
+def make_sparse_embedding(texts: List[str]) -> List[Dict[str, list]]:
+    """Sparse-embed a batch of document chunks for the keyword channel.
+
+    Called by vector_store.add_documents() alongside make_dense_embedding.
+    Return format: [{"indices": [...], "values": [...]}, ...] — one dict per
+    text, matching qdrant_client.models.SparseVector(indices, values).
     """
-    raise NotImplementedError("TODO: implement sparse embedding for hybrid search")
+    try:
+        from fastembed import SparseTextEmbedding
+    except ImportError:
+        raise ImportError(
+            "fastembed is required for sparse embeddings. "
+            "Run: pip install fastembed"
+        )
+
+    model_name = settings.sparse_embedding_model or "Qdrant/bm25"
+    if model_name not in _sparse_model_cache:
+        print(f"[embeddings] Loading sparse model '{model_name}' (first-time download may take a moment)...")
+        _sparse_model_cache[model_name] = SparseTextEmbedding(model_name=model_name)
+
+    model = _sparse_model_cache[model_name]
+    results = list(model.embed(texts))
+    return [
+        {"indices": r.indices.tolist(), "values": r.values.tolist()}
+        for r in results
+    ]
 
 
-def embed_sparse_query(text: str) -> Dict[str, list]:
-    """Sparse-embed a single query string. See embed_sparse() for the
-    expected return shape.
+def query_sparse_embedding(text: str) -> Dict[str, list]:
+    """Sparse-embed a single query string for the keyword channel at query time."""
+    return make_sparse_embedding([text])[0]
 
-    TODO: implement.
-    """
-    raise NotImplementedError("TODO: implement sparse query embedding")
+
+# ---------------------------------------------------------------------------
+# Provider implementations
+# ---------------------------------------------------------------------------
+
+def _openai_embed(texts: List[str]) -> List[List[float]]:
+    """Embed texts using the OpenAI Embeddings API, batched in groups of 100."""
+    try:
+        from openai import OpenAI
+    except ImportError:
+        raise ImportError("openai package not installed. Run: pip install openai")
+
+    client = OpenAI(api_key=settings.llm_api_key)
+    model = settings.embedding_model or "text-embedding-3-small"
+
+    vectors: List[List[float]] = []
+    batch_size = 100
+    for i in range(0, len(texts), batch_size):
+        batch = texts[i : i + batch_size]
+        resp = client.embeddings.create(input=batch, model=model)
+        vectors.extend(item.embedding for item in resp.data)
+
+    return vectors
+
+
+def _fastembed_dense_embed(texts: List[str]) -> List[List[float]]:
+    """Embed texts using a local fastembed dense model (no API key needed)."""
+    try:
+        from fastembed import TextEmbedding
+    except ImportError:
+        raise ImportError("fastembed is required. Run: pip install fastembed")
+
+    model_name = settings.embedding_model or "BAAI/bge-small-en-v1.5"
+    if model_name not in _dense_model_cache:
+        print(f"[embeddings] Loading dense model '{model_name}' (first-time download may take a moment)...")
+        _dense_model_cache[model_name] = TextEmbedding(model_name=model_name)
+
+    model = _dense_model_cache[model_name]
+    return [e.tolist() for e in model.embed(texts)]

@@ -1,70 +1,125 @@
-"""Orchestrator: wires the Supervisor + specialist agents together using
-LangGraph (see docs/DESIGN_DECISIONS.md).
+"""LangGraph orchestrator — wires the five agent nodes into a StateMachine.
 
-TODO: implement. Rough shape:
+Graph topology:
 
-    from langgraph.graph import StateGraph, END
-    from smartdesk.orchestrator.state import AgentState
-    from smartdesk.agents.supervisor import supervisor_node
-    from smartdesk.agents.it_knowledge_agent import it_knowledge_node
-    from smartdesk.agents.hr_knowledge_agent import hr_knowledge_node
-    from smartdesk.agents.ticket_creation_agent import ticket_creation_node
-    from smartdesk.agents.ticket_status_agent import ticket_status_node
+    [START]
+       │
+   supervisor          ← classifies query → sets state["route"]
+       │
+   ┌───┴────────────────────────────────┐
+   │    conditional edges on route      │
+   ▼                                    ▼
+it_kb    hr_kb    create_ticket    ticket_status
+   │       │            │                │
+   └───────┴────────────┴────────────────┘
+                        │
+                      [END]
 
-    def build_orchestrator():
-        graph = StateGraph(AgentState)
-        graph.add_node("supervisor", supervisor_node)
-        graph.add_node("it_kb", it_knowledge_node)
-        graph.add_node("hr_kb", hr_knowledge_node)
-        graph.add_node("create_ticket", ticket_creation_node)
-        graph.add_node("ticket_status", ticket_status_node)
+off_topic → [END] directly (supervisor returns response inline).
 
-        graph.set_entry_point("supervisor")
-        graph.add_conditional_edges(
-            "supervisor",
-            lambda state: state["route"],
-            {
-                "it_kb": "it_kb",
-                "hr_kb": "hr_kb",
-                "create_ticket": "create_ticket",
-                "ticket_status": "ticket_status",
-                "off_topic": END,
-            },
-        )
-        for node in ("it_kb", "hr_kb", "create_ticket", "ticket_status"):
-            graph.add_edge(node, END)
+Usage:
+    from smartdesk.orchestrator.graph import build_orchestrator, run_once
 
-        return graph.compile()
-
-    def run_once(graph, initial_state):
-        return graph.invoke(initial_state)
-
-If LangGraph's checkpointing/streaming features end up being more
-friction than they're worth during development, a plain if/elif dispatch
-on state["route"] is equally valid for the rubric — the bonus is clear
-multi-agent boundaries, not framework sophistication. Keep that as a
-fallback.
+    graph = build_orchestrator()          # call once at startup
+    result = run_once(graph, {"query": "How do I reset my VPN?"})
+    print(result["response"])
 """
 
 from __future__ import annotations
 
 from typing import Any
 
+from langgraph.graph import END, StateGraph
+
+from smartdesk.agents.hr_knowledge_agent import hr_knowledge_node
+from smartdesk.agents.it_knowledge_agent import it_knowledge_node
+from smartdesk.agents.supervisor import supervisor_node
+from smartdesk.agents.ticket_creation_agent import ticket_creation_node
+from smartdesk.agents.ticket_status_agent import ticket_status_node
 from smartdesk.orchestrator.state import AgentState
 
+# ---------------------------------------------------------------------------
+# Off-topic response (handled inline — no separate agent node needed)
+# ---------------------------------------------------------------------------
+
+_OFF_TOPIC_RESPONSE = (
+    "I'm SmartDesk AI, focused on IT and HR support topics. "
+    "I can help you with things like VPN setup, MFA enrollment, PTO policies, "
+    "benefits enrollment, or creating/checking support tickets. "
+    "What can I help you with today?"
+)
+
+
+def _off_topic_node(state: AgentState) -> AgentState:
+    return {**state, "response": _OFF_TOPIC_RESPONSE}
+
+
+# ---------------------------------------------------------------------------
+# Routing function
+# ---------------------------------------------------------------------------
+
+def _route(state: AgentState) -> str:
+    """Read state['route'] set by supervisor_node and return the target node name."""
+    return state.get("route", "off_topic")
+
+
+# ---------------------------------------------------------------------------
+# Graph builder
+# ---------------------------------------------------------------------------
 
 def build_orchestrator() -> Any:
-    """Construct and return the compiled LangGraph graph.
+    """Construct and compile the LangGraph StateGraph.
 
-    TODO: implement (see module docstring).
+    Returns the compiled graph object. Call this once at application startup
+    and reuse the returned object for every query invocation.
     """
-    raise NotImplementedError("TODO: build the orchestrator graph")
+    graph: StateGraph = StateGraph(AgentState)
 
+    # Register nodes
+    graph.add_node("supervisor", supervisor_node)
+    graph.add_node("it_kb", it_knowledge_node)
+    graph.add_node("hr_kb", hr_knowledge_node)
+    graph.add_node("create_ticket", ticket_creation_node)
+    graph.add_node("ticket_status", ticket_status_node)
+    graph.add_node("off_topic", _off_topic_node)
+
+    # Entry point
+    graph.set_entry_point("supervisor")
+
+    # Supervisor → agent nodes (conditional on state["route"])
+    graph.add_conditional_edges(
+        "supervisor",
+        _route,
+        {
+            "it_kb": "it_kb",
+            "hr_kb": "hr_kb",
+            "create_ticket": "create_ticket",
+            "ticket_status": "ticket_status",
+            "off_topic": "off_topic",
+        },
+    )
+
+    # All agent nodes → END (single-turn; each node sets state["response"])
+    for node_name in ("it_kb", "hr_kb", "create_ticket", "ticket_status", "off_topic"):
+        graph.add_edge(node_name, END)
+
+    return graph.compile()
+
+
+# ---------------------------------------------------------------------------
+# Runner
+# ---------------------------------------------------------------------------
 
 def run_once(graph: Any, initial_state: AgentState) -> AgentState:
-    """Run a single turn through the compiled graph and return the final
-    state (graph.invoke(initial_state) for LangGraph).
+    """Run the graph for a single query and return the final state.
 
-    TODO: implement.
+    Args:
+        graph:         Compiled graph from build_orchestrator().
+        initial_state: Must include at least {"query": str}.
+                       Optionally include {"email": str} for ticket flows.
+
+    Returns:
+        Final AgentState with state["response"] set.
     """
-    raise NotImplementedError("TODO: run the orchestrator for one turn")
+    result = graph.invoke(initial_state)
+    return result
