@@ -22,105 +22,17 @@ HITL in Gradio:
 
 from __future__ import annotations
 
-import asyncio
 import os
 
 os.environ.setdefault("HITL_MODE", "ui")  # switch all agents to UI mode
 
 try:
     import gradio as gr
-    import gradio_client.utils as client_utils
-    import gradio.utils as gradio_utils
-    from starlette.responses import HTMLResponse
-    from starlette.templating import Jinja2Templates
 except ImportError:
     raise SystemExit(
         "Gradio is not installed. Run: pip install gradio\n"
         "Or install the full extras: pip install -e '.[ui]'"
     )
-
-# Gradio 4.44.x can hit a schema-parsing bug when a component exposes
-# additionalProperties as a boolean. Patch that path locally so the UI can
-# still start and expose its API metadata.
-if not getattr(client_utils, "_smartdesk_patched", False):
-    _original_get_type = client_utils.get_type
-
-    def _safe_get_type(schema):
-        if isinstance(schema, bool):
-            return "boolean" if schema else "null"
-        return _original_get_type(schema)
-
-    client_utils.get_type = _safe_get_type
-    client_utils._smartdesk_patched = True
-
-# Gradio 4.44.x expects the older Starlette template API signature.
-# Patch it to accept the call pattern used by Gradio's routes.
-if not getattr(Jinja2Templates, "_smartdesk_patched", False):
-    _original_template_response = Jinja2Templates.TemplateResponse
-
-    def _compat_template_response(
-        self,
-        request,
-        name=None,
-        context=None,
-        status_code=200,
-        headers=None,
-        media_type=None,
-        background=None,
-    ):
-        if isinstance(request, str) and isinstance(name, dict) and context is None:
-            context = name
-            name = request
-            request = context.get("request")
-        elif isinstance(request, dict) and isinstance(name, dict) and context is None:
-            context = request
-            request = context.get("request")
-            name = "frontend/index.html"
-        elif context is None and isinstance(name, dict):
-            context = name
-            name = "frontend/index.html"
-        if request is None and context is not None:
-            request = context.get("request")
-        if context is None:
-            context = {}
-        if not isinstance(context, dict):
-            context = {"request": request, "context": context}
-        return _original_template_response(
-            self,
-            request,
-            name,
-            context,
-            status_code=status_code,
-            headers=headers,
-            media_type=media_type,
-            background=background,
-        )
-
-    Jinja2Templates.TemplateResponse = _compat_template_response
-    Jinja2Templates._smartdesk_patched = True
-
-# Gradio's queue/heartbeat internals assume asyncio primitives are available
-# even when the event loop is not yet running. Provide fallbacks so the app can
-# boot cleanly under this interpreter.
-if not getattr(gradio_utils, "_smartdesk_patched", False):
-    _original_safe_get_lock = gradio_utils.safe_get_lock
-    _original_safe_get_stop_event = gradio_utils.safe_get_stop_event
-
-    def _safe_get_lock():
-        try:
-            return _original_safe_get_lock()
-        except Exception:
-            return asyncio.Lock()
-
-    def _safe_get_stop_event():
-        try:
-            return _original_safe_get_stop_event()
-        except Exception:
-            return asyncio.Event()
-
-    gradio_utils.safe_get_lock = _safe_get_lock
-    gradio_utils.safe_get_stop_event = _safe_get_stop_event
-    gradio_utils._smartdesk_patched = True
 
 from smartdesk.orchestrator.graph import build_orchestrator, run_once
 
@@ -287,4 +199,4 @@ with gr.Blocks(title="SmartDesk AI", theme=gr.themes.Soft()) as demo:
 
 
 if __name__ == "__main__":
-    demo.launch(show_error=True, enable_monitoring=False, quiet=True)
+    demo.launch(show_error=True)

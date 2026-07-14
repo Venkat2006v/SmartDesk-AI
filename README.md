@@ -29,7 +29,7 @@ A Supervisor agent uses the LLM to classify each query into one of five routes:
 | Dense embeddings | OpenAI `text-embedding-3-small` or fastembed (local, free) |
 | Sparse embeddings | fastembed BM25 (`Qdrant/bm25`) — hybrid search bonus |
 | LLM | OpenAI (`gpt-4o-mini` default) or Anthropic |
-| Ticketing | Mock in-memory client (swap `TICKETING_PROVIDER=real` for Jira/etc.) |
+| Ticketing | Mock in-memory client (swap `TICKETING_PROVIDER=jira` for live Jira) |
 | UI (bonus) | Gradio 6 chat interface |
 
 ## Project layout
@@ -194,7 +194,7 @@ Ticket creation is **never** skipped past the HITL gate.
 | `VECTOR_INDEX_DIR` | `./data/processed/vector_index` | Qdrant local path |
 | `QDRANT_COLLECTION_NAME` | `smartdesk_kb` | Collection name |
 | `CONFIDENCE_THRESHOLD` | `0.0` | Escalation threshold (0–1) |
-| `TICKETING_PROVIDER` | `mock` | `mock` or `real` |
+| `TICKETING_PROVIDER` | `mock` | `mock` or `jira` |
 | `HITL_MODE` | `cli` | `cli` (stdin) or `ui` (Gradio) |
 
 ## Status

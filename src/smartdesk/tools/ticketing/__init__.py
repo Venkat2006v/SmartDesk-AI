@@ -7,7 +7,7 @@ Usage:
 
 Provider is controlled by TICKETING_PROVIDER in .env:
     "mock"  (default) — MockTicketingClient, no credentials needed
-    "real"            — RealTicketingClient, needs TICKETING_API_KEY etc.
+    "jira"            — RealTicketingClient (Jira), needs TICKETING_API_KEY etc.
 """
 
 from __future__ import annotations
@@ -26,7 +26,7 @@ def get_ticketing_client() -> TicketingClient:
         if provider == "mock":
             from smartdesk.tools.ticketing.mock_client import MockTicketingClient
             _client = MockTicketingClient()
-        elif provider == "real":
+        elif provider == "jira":
             from smartdesk.tools.ticketing.ticketing_client import RealTicketingClient
             _client = RealTicketingClient(
                 api_key=settings.ticketing_api_key,
@@ -36,6 +36,6 @@ def get_ticketing_client() -> TicketingClient:
         else:
             raise ValueError(
                 f"Unknown TICKETING_PROVIDER: {provider!r}. "
-                "Set to 'mock' or 'real' in .env."
+                "Set to 'mock' or 'jira' in .env."
             )
     return _client

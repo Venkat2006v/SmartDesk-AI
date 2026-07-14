@@ -1,8 +1,4 @@
-"""Centralized configuration, loaded from environment variables (.env).
-
-Keeping all config in one place means the rest of the codebase never reads
-os.environ directly — swap providers/backends by changing .env, not code.
-"""
+"""Centralized configuration loaded from environment variables (.env)."""
 
 from __future__ import annotations
 
@@ -16,9 +12,7 @@ load_dotenv()
 
 @dataclass
 class Settings:
-    # Orchestration framework (LangGraph — see docs/DESIGN_DECISIONS.md).
-    # Informational only; LangGraph itself needs no API key, just whichever
-    # LLM provider is configured below.
+    # Orchestration (LangGraph — informational, no API key needed)
     orchestration_framework: str = field(
         default_factory=lambda: os.getenv("ORCHESTRATION_FRAMEWORK", "langgraph")
     )
@@ -28,7 +22,7 @@ class Settings:
     llm_api_key: str = field(default_factory=lambda: os.getenv("LLM_API_KEY", ""))
     llm_model: str = field(default_factory=lambda: os.getenv("LLM_MODEL", ""))
 
-    # Vector store (Qdrant — see docs/DESIGN_DECISIONS.md)
+    # Vector store (Qdrant)
     vector_store_backend: str = field(
         default_factory=lambda: os.getenv("VECTOR_STORE_BACKEND", "qdrant")
     )
@@ -61,6 +55,8 @@ class Settings:
     ticketing_project_key: str = field(
         default_factory=lambda: os.getenv("TICKETING_PROJECT_KEY", "")
     )
+    # Jira-specific: the Atlassian account email paired with TICKETING_API_KEY
+    jira_email: str = field(default_factory=lambda: os.getenv("JIRA_EMAIL", ""))
 
     # Retrieval / escalation
     retrieval_top_k: int = field(default_factory=lambda: int(os.getenv("RETRIEVAL_TOP_K", "4")))
