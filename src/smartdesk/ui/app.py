@@ -22,6 +22,7 @@ HITL in Gradio:
 
 from __future__ import annotations
 
+import asyncio
 import os
 
 os.environ.setdefault("HITL_MODE", "ui")  # switch all agents to UI mode
@@ -29,6 +30,8 @@ os.environ.setdefault("HITL_MODE", "ui")  # switch all agents to UI mode
 try:
     import gradio as gr
     import gradio_client.utils as client_utils
+    import gradio.utils as gradio_utils
+    from starlette.responses import HTMLResponse
     from starlette.templating import Jinja2Templates
 except ImportError:
     raise SystemExit(
@@ -65,12 +68,23 @@ if not getattr(Jinja2Templates, "_smartdesk_patched", False):
         media_type=None,
         background=None,
     ):
-        if name is not None and isinstance(name, dict) and context is None:
+        if isinstance(request, str) and isinstance(name, dict) and context is None:
             context = name
             name = request
             request = context.get("request")
+        elif isinstance(request, dict) and isinstance(name, dict) and context is None:
+            context = request
+            request = context.get("request")
+            name = "frontend/index.html"
+        elif context is None and isinstance(name, dict):
+            context = name
+            name = "frontend/index.html"
         if request is None and context is not None:
             request = context.get("request")
+        if context is None:
+            context = {}
+        if not isinstance(context, dict):
+            context = {"request": request, "context": context}
         return _original_template_response(
             self,
             request,
@@ -84,6 +98,29 @@ if not getattr(Jinja2Templates, "_smartdesk_patched", False):
 
     Jinja2Templates.TemplateResponse = _compat_template_response
     Jinja2Templates._smartdesk_patched = True
+
+# Gradio's queue/heartbeat internals assume asyncio primitives are available
+# even when the event loop is not yet running. Provide fallbacks so the app can
+# boot cleanly under this interpreter.
+if not getattr(gradio_utils, "_smartdesk_patched", False):
+    _original_safe_get_lock = gradio_utils.safe_get_lock
+    _original_safe_get_stop_event = gradio_utils.safe_get_stop_event
+
+    def _safe_get_lock():
+        try:
+            return _original_safe_get_lock()
+        except Exception:
+            return asyncio.Lock()
+
+    def _safe_get_stop_event():
+        try:
+            return _original_safe_get_stop_event()
+        except Exception:
+            return asyncio.Event()
+
+    gradio_utils.safe_get_lock = _safe_get_lock
+    gradio_utils.safe_get_stop_event = _safe_get_stop_event
+    gradio_utils._smartdesk_patched = True
 
 from smartdesk.orchestrator.graph import build_orchestrator, run_once
 
