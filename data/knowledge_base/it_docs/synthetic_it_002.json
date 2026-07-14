@@ -1,0 +1,5 @@
+{
+  "title": "Resetting Your Active Directory/SSO Password",
+  "text": "Q: How do I reset my Active Directory/SSO password?\nA: To reset your Active Directory/SSO password, start by navigating to the company’s password reset portal. You can find the link on the IT department's intranet page. Once there, enter your username or email address associated with your account. Follow the prompts to verify your identity, which may include answering security questions or receiving a verification code via email or SMS. After verification, you will be able to create a new password. Make sure your new password meets the company’s security requirements, which typically include a mix of uppercase letters, lowercase letters, numbers, and special characters. If you encounter any issues during this process, please contact the IT helpdesk for further assistance.",
+  "source": "synthetic-llm"
+}
