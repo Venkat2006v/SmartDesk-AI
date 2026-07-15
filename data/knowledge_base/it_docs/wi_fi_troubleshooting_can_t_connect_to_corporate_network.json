@@ -1,0 +1,5 @@
+{
+  "title": "Wi-Fi Troubleshooting: Can't Connect to Corporate Network",
+  "text": "Q: What should I do if I can't connect to the corporate Wi-Fi network?\nA: Step 1: Ensure Wi-Fi is enabled on your device. Check the Wi-Fi toggle in your device settings. Step 2: Verify that you are within range of the corporate Wi-Fi network. Step 3: Click on the Wi-Fi icon in your system tray (Windows) or menu bar (Mac) and select the corporate network from the list. Step 4: Enter the correct Wi-Fi password. The format is usually: 'CorpWiFi2023!'. Step 5: If you still can't connect, forget the network by right-clicking (Windows) or selecting 'Forget This Network' (Mac) and then reconnect using the password. Step 6: Restart your device to refresh the network settings. Step 7: If the issue persists, check for any system updates or driver updates that may be pending. Step 8: Contact the IT helpdesk if you are still unable to connect, providing details of any error messages you receive.",
+  "source": "synthetic-llm"
+}

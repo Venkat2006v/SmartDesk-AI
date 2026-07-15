@@ -1,5 +1,0 @@
-{
-  "title": "Accessing Shared Network Drives and File Shares",
-  "text": "Q: How do I access shared network drives and file shares?\nA: To access shared network drives and file shares, first ensure you are connected to the company network, either via Wi-Fi or a wired connection. On a Windows computer, open File Explorer and click on 'This PC' in the left sidebar. Then, select 'Map network drive' from the toolbar. Choose a drive letter and enter the network path for the shared drive, which you can obtain from your supervisor or IT department. For Mac users, open Finder, select 'Go' from the menu, and then 'Connect to Server.' Enter the network address and click 'Connect.' If prompted, enter your company credentials to access the files.",
-  "source": "synthetic-llm"
-}

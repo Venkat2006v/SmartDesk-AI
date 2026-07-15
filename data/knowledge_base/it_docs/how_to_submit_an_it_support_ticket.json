@@ -1,0 +1,5 @@
+{
+  "title": "How to Submit an IT Support Ticket",
+  "text": "Q: How do I submit an IT support ticket and what information should I include?\nA: To submit an IT support ticket, please follow these steps: Step 1: Open your web browser and navigate to the IT support portal at https://support.company.com. Step 2: Log in using your company credentials (username: your.email@company.com, password: your network password). Step 3: Click on the 'Submit a Ticket' button located on the homepage. Step 4: Fill out the ticket form with the following information: a) Subject: A brief summary of the issue. b) Description: A detailed explanation of the problem, including any error messages. c) Priority Level: Select the urgency of the issue (Low, Medium, High). d) Attachments: Include any relevant screenshots or files that can help us understand the issue better. Step 5: Review your ticket for accuracy and completeness. Step 6: Click the 'Submit' button to send your ticket. You will receive a confirmation email with a ticket number for tracking purposes.",
+  "source": "synthetic-llm"
+}

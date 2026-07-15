@@ -15,6 +15,7 @@ parse it without regex gymnastics. Temperature is 0 for determinism.
 from __future__ import annotations
 
 from smartdesk.agents._llm import call_llm
+from smartdesk.guardrails.validation import is_valid_email
 from smartdesk.orchestrator.state import AgentState, Route
 
 _VALID_ROUTES: set[Route] = {
@@ -32,7 +33,8 @@ offboarding, payroll, company policies, performance reviews, equity, parental le
 e.g. "laptop setup AND benefits enrollment", "new hire IT access AND HR policies", \
 "onboarding steps for IT equipment AND PTO policy"
   create_ticket - User wants to CREATE or OPEN a new support ticket / helpdesk request
-  ticket_status - User wants to CHECK, VIEW, or LIST their existing tickets
+  ticket_status - User wants to CHECK, VIEW, LIST, CLOSE, CANCEL, RESOLVE, or UPDATE \
+an existing ticket
   off_topic     - Anything not related to IT or HR support (small talk, general questions, etc.)
 
 Rules:
@@ -42,6 +44,7 @@ Rules:
 - For single-domain questions (even if the topic is borderline), prefer it_kb or hr_kb.
 - If ambiguous between it_kb/hr_kb and create_ticket, choose create_ticket only when \
 the user explicitly says "create", "open", "submit", "raise", or "file" a ticket.
+- Route "close", "cancel", "resolve", "update", or "reopen" ticket requests to ticket_status.
 - Prefer it_kb or hr_kb when the user is asking a question, even if they mention a problem.
 """
 
@@ -79,6 +82,19 @@ def classify(state: AgentState) -> Route:
 
 def supervisor_node(state: AgentState) -> AgentState:
     """LangGraph node: classify query and set state['route']."""
+
+    # Short-circuit: if the user replied with a bare email address in response
+    # to an agent that asked for one, route directly without an LLM call.
+    query = state.get("query", "").strip()
+    if is_valid_email(query):
+        pending = state.get("pending_action")
+        if pending == "ticket_status":
+            print(f"[supervisor] route → 'ticket_status' (email reply for ticket lookup)")
+            return {**state, "email": query, "pending_action": None, "route": "ticket_status"}
+        if state.get("ticket_summary"):
+            print(f"[supervisor] route → 'create_ticket' (email reply for pending ticket)")
+            return {**state, "email": query, "route": "create_ticket"}
+
     route = classify(state)
     print(f"[supervisor] route → {route!r}")
     return {**state, "route": route}

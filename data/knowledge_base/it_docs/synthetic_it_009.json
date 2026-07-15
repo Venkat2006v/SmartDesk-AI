@@ -1,5 +1,0 @@
-{
-  "title": "Printer Setup and Network Printer Troubleshooting",
-  "text": "Q: How do I set up a printer and troubleshoot network printer issues?\nA: To set up a printer, first ensure it is connected to the power source and turned on. If it's a network printer, connect it to the company Wi-Fi or Ethernet network as per the manufacturer's instructions. On your computer, go to 'Settings', then 'Devices', and select 'Printers & Scanners' to add the printer. If you encounter issues, check if the printer is online and ensure your computer is connected to the same network. Restart both the printer and your computer if necessary. If problems persist, consult the printer's display for error messages or contact IT support for further assistance.",
-  "source": "synthetic-llm"
-}

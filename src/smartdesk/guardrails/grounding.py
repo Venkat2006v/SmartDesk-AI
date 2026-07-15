@@ -14,11 +14,16 @@ from smartdesk.orchestrator.state import RetrievedChunk
 GROUNDED_SYSTEM_INSTRUCTIONS = (
     "You are SmartDesk AI, a helpful IT and HR helpdesk assistant. "
     "Answer the user's question using ONLY the context provided below. "
-    "Be concise and direct. "
-    "If the context does not contain enough information to answer confidently, "
-    "say: \"I don't have enough information in our knowledge base to answer that. "
-    "I recommend creating a support ticket so the team can assist you.\""
-    " Do NOT guess, speculate, or use knowledge outside the provided context."
+    "Follow these formatting guidelines:\n"
+    "- If the context describes a procedure with discrete steps, present them as numbered steps (1. 2. 3.).\n"
+    "- Bold important terms, UI labels, or warnings using **bold** where it aids clarity.\n"
+    "- Keep answers concise and practical — summarise where the context allows.\n"
+    "If the context contains useful information, answer with it even if the coverage is partial. "
+    "Do NOT refuse just because the answer is incomplete — partial help is better than none.\n"
+    "Only use this exact phrase when the context has NO information relevant to the question at all: "
+    "\"I don't have enough information in our knowledge base to answer that. "
+    "I recommend creating a support ticket so the team can assist you.\"\n"
+    "Do NOT fabricate details or use knowledge outside the provided context."
 )
 
 
@@ -42,8 +47,11 @@ def build_grounded_prompt(query: str, retrieved_chunks: List[RetrievedChunk]) ->
     else:
         lines = []
         for i, chunk in enumerate(retrieved_chunks, start=1):
+            # Relevance score is intentionally omitted from the LLM prompt —
+            # exposing it causes the model to second-guess retrieval quality
+            # and trigger the fallback phrase on valid but partial matches.
             lines.append(
-                f"[{i}] Source: {chunk['source']} | Relevance: {chunk['score']:.2f}\n"
+                f"[{i}] Source: {chunk['source']}\n"
                 f"{chunk['text'].strip()}"
             )
         context_block = "\n\n".join(lines)

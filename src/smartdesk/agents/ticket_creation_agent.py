@@ -14,13 +14,35 @@ Flow:
 
 from __future__ import annotations
 
-import json
+from typing import Literal
 
-from smartdesk.agents._llm import call_llm
+from pydantic import BaseModel, ValidationError
+
+from smartdesk.agents._llm import call_llm, call_llm_json
 from smartdesk.guardrails.validation import is_valid_email, with_retry
 from smartdesk.orchestrator.state import AgentState
 from smartdesk.tools.hitl import confirm_action
 from smartdesk.tools.ticketing import get_ticketing_client
+
+
+# ---------------------------------------------------------------------------
+# Structured output schema (Pydantic)
+# ---------------------------------------------------------------------------
+
+class TicketFields(BaseModel):
+    """Schema for LLM-extracted ticket fields.
+
+    Using Pydantic here gives us:
+    - Type coercion (LLM returns string priority → validated against Literal)
+    - Clear error messages if the LLM returns an unexpected value
+    - Zero manual field validation in _extract_ticket_fields()
+    """
+    summary: str
+    description: str
+    category: Literal[
+        "IT Support", "HR Request", "Access Request", "Hardware", "Software", "Other"
+    ] = "IT Support"
+    priority: Literal["Low", "Medium", "High", "Critical"] = "Medium"
 
 # ---------------------------------------------------------------------------
 # LLM prompts
@@ -35,12 +57,11 @@ Given the user's message, extract:
                  (Critical = system down / blocking work; High = significant impact;
                   Medium = inconvenient but workaround exists; Low = minor / informational)
 
-Respond with ONLY valid JSON in this exact format:
-{"summary": "...", "description": "...", "category": "...", "priority": "..."}
+Respond with a JSON object containing exactly these four keys:
+  "summary", "description", "category", "priority"
 
 If a field cannot be determined from the message, use sensible defaults:
   category → "IT Support", priority → "Medium"
-No extra text, no markdown, no code fences — just the JSON object.
 """
 
 _EXTRACT_EMAIL_SYSTEM = """You are a helpdesk assistant. Extract the email address from the user's message.
@@ -82,12 +103,17 @@ def ticket_creation_node(state: AgentState) -> AgentState:
         email = _extract_email_from_query(query)
 
     if not is_valid_email(email):
+        # Persist the already-extracted ticket fields so that on the next turn
+        # (when the user provides their email) we don't re-extract from scratch
+        # and lose the summary/description.
         return {
             **state,
+            "ticket_summary": summary,
+            "ticket_description": description,
             "response": (
-                "I need a valid email address to create the ticket. "
-                f"{'The email provided does not look valid. ' if email else ''}"
-                "Please provide your email address."
+                "To create this ticket I need your email address. "
+                "Please reply with your email and I'll take care of the rest.\n\n"
+                f"*(Ticket queued: {summary})*"
             ),
         }
 
@@ -164,26 +190,48 @@ def ticket_creation_node(state: AgentState) -> AgentState:
 # ---------------------------------------------------------------------------
 
 def _extract_ticket_fields(query: str) -> tuple[str, str, str, str]:
-    """Use LLM to extract summary, description, category, and priority."""
+    """Use LLM to extract summary, description, category, and priority.
+
+    Uses call_llm_json() which:
+    - For OpenAI: sets response_format={"type": "json_object"} — the API
+      guarantees valid JSON, eliminating markdown stripping and json.loads errors.
+    - For Anthropic: falls back to prompt-based JSON + safe parsing.
+
+    The parsed dict is then validated against the TicketFields Pydantic schema,
+    which enforces the exact category and priority enum values and provides
+    clear error messages for unexpected LLM output.
+    """
     try:
-        raw = call_llm(system=_EXTRACT_SYSTEM, user=query, temperature=0.0)
-        raw = raw.strip().lstrip("```json").lstrip("```").rstrip("```").strip()
-        data = json.loads(raw)
+        data = call_llm_json(system=_EXTRACT_SYSTEM, user=query)
+        fields = TicketFields(**data)
         return (
-            str(data.get("summary", "")).strip(),
-            str(data.get("description", "")).strip(),
-            str(data.get("category", "IT Support")).strip(),
-            str(data.get("priority", "Medium")).strip(),
+            fields.summary.strip(),
+            fields.description.strip(),
+            fields.category,
+            fields.priority,
         )
+    except ValidationError as exc:
+        # Pydantic caught an invalid category or priority — use defaults
+        print(f"[ticket_creation] Schema validation failed: {exc!r} — applying defaults")
+        # Still extract what we can from the raw dict
+        summary = str(data.get("summary", query[:80])).strip()  # type: ignore[possibly-undefined]
+        description = str(data.get("description", query)).strip()
+        return summary, description, "IT Support", "Medium"
     except Exception as exc:
         print(f"[ticket_creation] Field extraction failed: {exc!r} — using query as summary")
         return query[:80].strip(), query.strip(), "IT Support", "Medium"
 
 
 def _extract_email_from_query(query: str) -> str:
-    """Use LLM to pull an email address out of the query text."""
+    """Use LLM to pull an email address out of the query text.
+
+    Returns the email only if it passes is_valid_email(); otherwise returns "".
+    This guards against the LLM returning prose like "No email found" instead
+    of the empty string instructed in the system prompt.
+    """
     try:
         result = call_llm(system=_EXTRACT_EMAIL_SYSTEM, user=query, temperature=0.0)
-        return result.strip()
+        candidate = result.strip()
+        return candidate if is_valid_email(candidate) else ""
     except Exception:
         return ""

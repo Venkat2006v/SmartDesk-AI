@@ -1,4 +1,4 @@
-"""Generate synthetic IT/HR Q&A docs with an LLM.
+"""Generate synthetic IT/HR Q&A docs with an LLM (Option C — synthetic half).
 
 Run with:
     python scripts/generate_synthetic_docs.py
@@ -144,22 +144,25 @@ _JSON_INSTRUCTION = (
 def _it_prompt(topic: str) -> str:
     return (
         f"You are writing entries for a company IT helpdesk knowledge base. "
-        f"Write a FAQ entry for company employees about: '{topic}'.\n\n"
+        f"Write a detailed FAQ entry for company employees about: '{topic}'.\n\n"
         f"Return a JSON object with exactly these keys:\n"
         f"  \"title\": short title for this entry\n"
         f"  \"question\": the natural question an employee would ask\n"
-        f"  \"answer\": a clear, practical answer (5-7 sentences, plain text, no markdown)\n\n"
+        f"  \"answer\": a clear, practical answer with numbered steps where applicable "
+        f"(e.g. 'Step 1: Open ... Step 2: Click ...'). Include specific tool names, "
+        f"menu paths, or credentials format where relevant. Aim for 6-10 sentences or steps.\n\n"
         f"{_JSON_INSTRUCTION}"
     )
 
 def _hr_prompt(topic: str) -> str:
     return (
         f"You are writing entries for a company HR knowledge base. "
-        f"Write a FAQ entry for company employees about: '{topic}'.\n\n"
+        f"Write a detailed FAQ entry for company employees about: '{topic}'.\n\n"
         f"Return a JSON object with exactly these keys:\n"
         f"  \"title\": short title for this entry\n"
         f"  \"question\": the natural question an employee would ask\n"
-        f"  \"answer\": a clear policy answer (5-7 sentences, plain text, no markdown)\n\n"
+        f"  \"answer\": a clear, practical policy answer. Include specific timelines, "
+        f"procedures, or contact points where applicable. Aim for 6-10 sentences.\n\n"
         f"{_JSON_INSTRUCTION}"
     )
 
@@ -217,10 +220,32 @@ def generate_docs(topics: list[str], prompt_fn, label: str) -> list[dict]:
     return docs
 
 
+def _title_to_slug(title: str) -> str:
+    """Convert a document title to a snake_case filename slug.
+
+    Examples:
+        "VPN Setup Guide"          → "vpn_setup_guide"
+        "MFA / TOTP Enrollment"    → "mfa_totp_enrollment"
+        "Annual Leave & Vacation"  → "annual_leave_vacation"
+    """
+    import re
+    slug = re.sub(r"[^a-z0-9]+", "_", title.lower()).strip("_")
+    return slug or "doc"
+
+
 def save_docs(docs: list[dict], out_dir: Path, prefix: str) -> None:
     out_dir.mkdir(parents=True, exist_ok=True)
+    seen_slugs: set[str] = set()
     for i, doc in enumerate(docs):
-        path = out_dir / f"{prefix}_{i + 1:03d}.json"
+        title = doc.get("title", "")
+        slug = _title_to_slug(title) if title else ""
+
+        # Fallback to sequential name if slug is empty or collides
+        if not slug or slug in seen_slugs:
+            slug = f"{prefix}_{i + 1:03d}"
+        seen_slugs.add(slug)
+
+        path = out_dir / f"{slug}.json"
         path.write_text(json.dumps(doc, indent=2, ensure_ascii=False), encoding="utf-8")
         print(f"    saved {path.name}")
 

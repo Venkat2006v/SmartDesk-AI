@@ -1,0 +1,5 @@
+{
+  "title": "Setting Up Multi-Factor Authentication (MFA / TOTP)",
+  "text": "Q: How do I set up multi-factor authentication (MFA) using TOTP?\nA: To set up multi-factor authentication (MFA) using Time-based One-Time Password (TOTP), follow these steps: Step 1: Log in to your company account on the secure portal. Step 2: Navigate to the 'Security Settings' section, usually found under 'Account Settings' or 'Profile'. Step 3: Look for the option labeled 'Enable Multi-Factor Authentication' or 'Set Up TOTP'. Step 4: Click on 'Generate QR Code' to display the TOTP QR code. Step 5: Open your preferred authenticator app (such as Google Authenticator, Authy, or Microsoft Authenticator) on your mobile device. Step 6: Use the app to scan the QR code displayed on your screen. Step 7: The app will generate a 6-digit code; enter this code into the provided field on the portal. Step 8: Click 'Verify' to complete the setup. Step 9: Save any backup codes provided for future access. Step 10: Log out and test the MFA by logging back in to ensure everything is functioning correctly.",
+  "source": "synthetic-llm"
+}

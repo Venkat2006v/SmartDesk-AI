@@ -1,5 +1,0 @@
-{
-  "title": "Setting Up and Connecting to the Company VPN on macOS",
-  "text": "Q: How do I set up and connect to the company VPN on my Mac?\nA: To set up and connect to the company VPN on macOS, first, open 'System Preferences' and click on 'Network'. In the Network window, click the '+' button to add a new connection. Select 'VPN' from the Interface dropdown menu and choose the VPN type specified by your IT department. Enter a name for the VPN connection and click 'Create'. Next, enter the server address and any authentication settings provided by your IT team. Once configured, click 'Apply' to save the settings. To connect, select the VPN from the list and click 'Connect'. You may need to enter your username and password to establish the connection.",
-  "source": "synthetic-llm"
-}

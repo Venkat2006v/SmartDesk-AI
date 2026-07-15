@@ -1,5 +1,0 @@
-{
-  "title": "Wi-Fi Troubleshooting: Can't Connect to Corporate Network",
-  "text": "Q: What should I do if I can't connect to the corporate Wi-Fi network?\nA: If you're having trouble connecting to the corporate Wi-Fi network, first ensure that Wi-Fi is enabled on your device. Check if you are within range of the network and that there are no physical obstructions. Next, verify that you are selecting the correct network name (SSID) and entering the correct password. If you still can't connect, try forgetting the network in your device's Wi-Fi settings and reconnecting. Restarting your device can also resolve temporary connectivity issues. If the problem persists, contact the IT helpdesk for further assistance.",
-  "source": "synthetic-llm"
-}

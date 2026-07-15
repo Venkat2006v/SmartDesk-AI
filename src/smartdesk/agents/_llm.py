@@ -123,6 +123,44 @@ def call_llm(system: str, user: str, temperature: float = 0.2) -> str:
         )
 
 
+@traceable(name="call_llm_json", run_type="llm")
+def call_llm_json(system: str, user: str) -> dict:
+    """Run a single-turn LLM completion and return guaranteed-valid parsed JSON.
+
+    Uses response_format={"type": "json_object"} for OpenAI — the API rejects
+    the call if the model cannot produce valid JSON, so json.loads() never fails
+    and markdown code-fence stripping is unnecessary.
+
+    For Anthropic (no JSON mode), falls back to call_llm() + json.loads() with
+    the prompt expected to return clean JSON (no markdown).
+
+    Always uses temperature=0.0 — JSON extraction is deterministic by nature.
+
+    Args:
+        system: System prompt. MUST instruct the model to return JSON.
+        user:   User-turn content.
+
+    Returns:
+        Parsed dict. Raises ValueError if parsing fails (Anthropic path only).
+    """
+    provider = settings.llm_provider.lower()
+
+    if provider == "openai":
+        return _call_openai_json(system, user)
+    elif provider == "anthropic":
+        # Anthropic has no JSON mode — rely on prompt + json.loads
+        raw = _call_anthropic(system, user, temperature=0.0)
+        try:
+            return _safe_json_loads(raw)
+        except ValueError as exc:
+            raise ValueError(f"Anthropic JSON extraction failed: {exc}") from exc
+    else:
+        raise ValueError(
+            f"Unsupported LLM_PROVIDER: {provider!r}. "
+            "Set LLM_PROVIDER to 'openai' or 'anthropic' in .env."
+        )
+
+
 # ---------------------------------------------------------------------------
 # Provider implementations
 # ---------------------------------------------------------------------------
@@ -142,6 +180,25 @@ def _call_openai(system: str, user: str, temperature: float) -> str:
     return resp.choices[0].message.content.strip()
 
 
+def _call_openai_json(system: str, user: str) -> dict:
+    """OpenAI call with response_format=json_object — guaranteed valid JSON output."""
+    import json
+
+    client = _get_openai_client()
+    model = settings.llm_model or "gpt-4o-mini"
+
+    resp = client.chat.completions.create(
+        model=model,
+        messages=[
+            {"role": "system", "content": system},
+            {"role": "user", "content": user},
+        ],
+        temperature=0.0,
+        response_format={"type": "json_object"},
+    )
+    return json.loads(resp.choices[0].message.content)
+
+
 def _call_anthropic(system: str, user: str, temperature: float) -> str:
     client = _get_anthropic_client()
     model = settings.llm_model or "claude-haiku-4-5-20251001"
@@ -154,3 +211,29 @@ def _call_anthropic(system: str, user: str, temperature: float) -> str:
         temperature=temperature,
     )
     return resp.content[0].text.strip()
+
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+def _safe_json_loads(raw: str) -> dict:
+    """Parse JSON from an LLM response, stripping markdown fences if present.
+
+    Used only for the Anthropic path in call_llm_json() since Anthropic has no
+    native JSON mode. For OpenAI, response_format=json_object makes this
+    unnecessary — the API guarantees clean JSON.
+    """
+    import json
+    import re
+
+    text = raw.strip()
+    # Strip ```json ... ``` or ``` ... ``` code fences if present
+    fence_match = re.search(r"```(?:json)?\s*([\s\S]*?)```", text)
+    if fence_match:
+        text = fence_match.group(1).strip()
+
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"Could not parse JSON from LLM response: {exc}\nRaw: {raw[:200]}")

@@ -47,35 +47,62 @@ def load_huggingface_hr() -> List[Document]:
     ds = load_dataset("strova-ai/hr-policies-qa-dataset", split="train")
 
     sample = ds[0]
-    question_col = next(
-        (c for c in ["question", "Question", "query", "prompt", "input"] if c in sample),
-        None,
-    )
-    answer_col = next(
-        (c for c in ["answer", "Answer", "response", "context", "text", "output"] if c in sample),
-        None,
-    )
-
-    if not answer_col:
-        print(f"[ingestion] WARNING: could not detect answer column. Columns: {list(sample.keys())}")
-        return []
-
     docs: List[Document] = []
-    for row in ds:
-        question = row.get(question_col, "").strip() if question_col else ""
-        answer = row.get(answer_col, "").strip()
-        if not answer:
-            continue
-        text = f"Q: {question}\nA: {answer}" if question else answer
-        docs.append(
-            Document(
-                id=str(uuid.uuid4()),
-                domain="hr",
-                title=question or "HR Policy",
-                text=text,
-                source="strova-ai/hr-policies-qa-dataset",
+
+    # ── Chat / messages format (e.g. [{"role": "user", ...}, {"role": "assistant", ...}]) ──
+    if "messages" in sample:
+        print("[ingestion] HF HR dataset: detected 'messages' chat format — extracting user/assistant turns.")
+        for row in ds:
+            messages = row.get("messages", [])
+            question = next(
+                (m.get("content", "").strip() for m in messages if m.get("role") == "user"), ""
             )
+            answer = next(
+                (m.get("content", "").strip() for m in messages if m.get("role") == "assistant"), ""
+            )
+            if not answer:
+                continue
+            text = f"Q: {question}\nA: {answer}" if question else answer
+            docs.append(
+                Document(
+                    id=str(uuid.uuid4()),
+                    domain="hr",
+                    title=question[:80] or "HR Policy",
+                    text=text,
+                    source="strova-ai/hr-policies-qa-dataset",
+                )
+            )
+
+    else:
+        # ── Flat column format ────────────────────────────────────────────────
+        question_col = next(
+            (c for c in ["question", "Question", "query", "prompt", "input"] if c in sample),
+            None,
         )
+        answer_col = next(
+            (c for c in ["answer", "Answer", "response", "context", "text", "output"] if c in sample),
+            None,
+        )
+
+        if not answer_col:
+            print(f"[ingestion] WARNING: could not detect answer column. Columns: {list(sample.keys())}")
+            return []
+
+        for row in ds:
+            question = row.get(question_col, "").strip() if question_col else ""
+            answer = row.get(answer_col, "").strip()
+            if not answer:
+                continue
+            text = f"Q: {question}\nA: {answer}" if question else answer
+            docs.append(
+                Document(
+                    id=str(uuid.uuid4()),
+                    domain="hr",
+                    title=question or "HR Policy",
+                    text=text,
+                    source="strova-ai/hr-policies-qa-dataset",
+                )
+            )
 
     print(f"[ingestion] HF HR dataset: {len(docs)} records loaded.")
     return docs

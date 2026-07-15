@@ -1,0 +1,5 @@
+{
+  "title": "Accessing Shared Network Drives and File Shares",
+  "text": "Q: How do I access shared network drives and file shares?\nA: To access shared network drives and file shares, follow these steps: Step 1: Ensure you are connected to the company network, either via Ethernet or VPN if you are remote. Step 2: Open 'File Explorer' on your Windows computer. Step 3: In the left-hand navigation pane, click on 'This PC'. Step 4: At the top menu, click on 'Computer', then select 'Map network drive'. Step 5: Choose a drive letter from the dropdown menu. Step 6: In the 'Folder' field, enter the network path of the shared drive (e.g., \\\\servername\\sharename) and click 'Finish'. Step 7: If prompted, enter your company credentials in the format 'DOMAIN\\username' and your password. Step 8: The shared drive should now appear in 'This PC' under the drive letter you selected. Step 9: You can now access files and folders within the shared drive as needed.",
+  "source": "synthetic-llm"
+}

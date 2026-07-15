@@ -32,6 +32,7 @@ from typing import Any
 
 from langgraph.graph import END, StateGraph
 
+from smartdesk.agents._llm import call_llm
 from smartdesk.agents.combined_knowledge_agent import combined_knowledge_node
 from smartdesk.agents.hr_knowledge_agent import hr_knowledge_node
 from smartdesk.agents.it_knowledge_agent import it_knowledge_node
@@ -41,19 +42,31 @@ from smartdesk.agents.ticket_status_agent import ticket_status_node
 from smartdesk.orchestrator.state import AgentState
 
 # ---------------------------------------------------------------------------
-# Off-topic response (handled inline — no separate agent node needed)
+# Off-topic node — LLM-generated response
 # ---------------------------------------------------------------------------
 
-_OFF_TOPIC_RESPONSE = (
-    "I'm SmartDesk AI, focused on IT and HR support topics. "
-    "I can help you with things like VPN setup, MFA enrollment, PTO policies, "
-    "benefits enrollment, or creating/checking support tickets. "
-    "What can I help you with today?"
+_OFF_TOPIC_SYSTEM = (
+    "You are SmartDesk AI, a friendly IT and HR helpdesk assistant. "
+    "The user has sent a message that is not an IT or HR support question. "
+    "Respond naturally and warmly — acknowledge greetings, thank-yous, and "
+    "farewells in a friendly way. "
+    "If the message is genuinely off-topic (not a greeting or social exchange), "
+    "politely explain that you specialise in IT and HR support and briefly mention "
+    "what you can help with: VPN, MFA, password resets, PTO, benefits, and support tickets. "
+    "Keep your reply concise — one or two sentences."
 )
 
 
 def _off_topic_node(state: AgentState) -> AgentState:
-    return {**state, "response": _OFF_TOPIC_RESPONSE}
+    query = state.get("query", "")
+    try:
+        response = call_llm(system=_OFF_TOPIC_SYSTEM, user=query, temperature=0.4)
+    except Exception:
+        response = (
+            "I'm SmartDesk AI, here to help with IT and HR topics. "
+            "Feel free to ask about VPN, MFA, PTO, benefits, or support tickets!"
+        )
+    return {**state, "response": response}
 
 
 # ---------------------------------------------------------------------------

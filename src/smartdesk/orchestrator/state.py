@@ -30,3 +30,4 @@ class AgentState(TypedDict):
     ticket_confirmed: NotRequired[bool]
     ticket_id: NotRequired[Optional[str]]
     response: NotRequired[str]
+    pending_action: NotRequired[Optional[str]]  # e.g. "ticket_status" — awaiting user email

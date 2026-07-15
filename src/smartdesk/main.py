@@ -79,13 +79,15 @@ def main() -> None:
             "(set LANGCHAIN_TRACING_V2=true + LANGCHAIN_API_KEY in .env to enable)\n"
         )
 
-    # ── Session email — collected lazily by ticket agents when needed ────────
-    # Per spec: "when it can't answer, collect the employee's email + issue
-    # summary + description". Email is not required for KB queries, so we do
-    # NOT ask upfront. The ticket_creation_agent and ticket_status_agent will
-    # request it the first time a ticket operation is triggered, then we cache
-    # it in session_email so they don't re-ask on subsequent turns.
+    # ── Session state — persisted across turns ───────────────────────────────
+    # Email: not collected upfront; ticket agents request it when needed.
+    # Ticket summary/description: cached when the agent asks for email mid-flow
+    # so the next turn (user replies with their email) can resume from the
+    # already-extracted fields without re-parsing the original request.
     session_email: str | None = None
+    session_ticket_summary: str | None = None
+    session_ticket_description: str | None = None
+    session_pending_action: str | None = None
 
     # ── Main REPL loop ──────────────────────────────────────────────────────
     print()
@@ -105,11 +107,14 @@ def main() -> None:
             _print_help()
             continue
 
-        # Build initial state for this turn. Pass cached email so ticket agents
-        # don't re-ask once the user has provided it earlier in the session.
+        # Build initial state for this turn. Pass cached session values so
+        # agents don't re-ask for things already collected this session.
         initial_state = {
             "query": raw,
             "email": session_email,
+            "ticket_summary": session_ticket_summary,
+            "ticket_description": session_ticket_description,
+            "pending_action": session_pending_action,
         }
 
         try:
@@ -121,9 +126,21 @@ def main() -> None:
             print(f"[error] {exc}")
             continue
 
-        # Cache email for the rest of the session once an agent validates it
+        # Cache validated values for the rest of the session
         if result.get("email"):
             session_email = result["email"]
+        # Persist pending ticket fields (agent may have extracted them but
+        # not yet created the ticket — e.g. waiting for the user's email)
+        if result.get("ticket_summary"):
+            session_ticket_summary = result["ticket_summary"]
+        if result.get("ticket_description"):
+            session_ticket_description = result["ticket_description"]
+        # Track what the agent is waiting for (e.g. email for ticket lookup)
+        session_pending_action = result.get("pending_action") or None
+        # Clear pending ticket once it's been successfully created
+        if result.get("ticket_id"):
+            session_ticket_summary = None
+            session_ticket_description = None
 
         # Print response
         response = result.get("response", "[no response]")

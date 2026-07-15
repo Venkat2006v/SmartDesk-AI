@@ -20,9 +20,34 @@ If no email is found, respond with an empty string "".
 """
 
 
+_CLOSURE_KEYWORDS = {"close", "closed", "cancel", "cancelled", "resolve", "resolved", "reopen", "update"}
+
+
+def _is_closure_request(query: str) -> bool:
+    """Return True if the query is asking to close/cancel/resolve a ticket."""
+    words = set(query.lower().split())
+    return bool(words & _CLOSURE_KEYWORDS)
+
+
 def ticket_status_node(state: AgentState) -> AgentState:
     """LangGraph node: look up tickets and format a response."""
     query = state.get("query", "")
+
+    # ── Closure / update requests — not supported via this interface ───────
+    if _is_closure_request(query):
+        return {
+            **state,
+            "response": (
+                "Closing, cancelling, or updating tickets isn't something I can do directly — "
+                "that requires action from your IT support team or manager.\n\n"
+                "Here's what you can do:\n"
+                "1. **Contact your IT support team** and reference the ticket ID.\n"
+                "2. **Reply to the ticket email notification** you received when it was created.\n"
+                "3. **Visit the Jira portal** linked in your ticket confirmation to update it yourself.\n\n"
+                "To look up your open tickets and get the ticket ID, say: "
+                "**\"What tickets do I have open?\"**"
+            ),
+        }
 
     # ── Step 1: Resolve email ──────────────────────────────────────────────
     email = state.get("email") or ""
@@ -34,6 +59,7 @@ def ticket_status_node(state: AgentState) -> AgentState:
     if not is_valid_email(email):
         return {
             **state,
+            "pending_action": "ticket_status",
             "response": (
                 "I need your email address to look up your tickets. "
                 "Please provide it and I'll check right away."
@@ -97,6 +123,7 @@ def _extract_email_from_query(query: str) -> str:
     """Use LLM to pull an email address out of the query text."""
     try:
         result = call_llm(system=_EXTRACT_EMAIL_SYSTEM, user=query, temperature=0.0)
-        return result.strip()
+        candidate = result.strip()
+        return candidate if is_valid_email(candidate) else ""
     except Exception:
         return ""
