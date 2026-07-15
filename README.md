@@ -434,6 +434,69 @@ that calls `create_ticket()` before `confirm_action()` returns `True`.
 | `HITL_MODE` | `cli` | `cli` (stdin) or `ui` (Gradio) |
 | `JIRA_EMAIL` | — | Atlassian account email (Jira only) |
 
+## Observability (LangSmith)
+
+SmartDesk AI ships with LangSmith tracing wired in at three levels:
+
+| Layer | What you see in LangSmith |
+|---|---|
+| LangGraph graph run | Full graph trace per query — supervisor node, agent node, inputs/outputs |
+| `call_llm()` | Each LLM call as a child span with system + user prompt and response |
+| OpenAI / Anthropic SDK | Token counts (prompt + completion), model name, latency |
+
+**Setup (2 minutes):**
+
+```bash
+# 1. Sign up free → https://smith.langchain.com
+# 2. Settings → API Keys → Create API Key
+# 3. Add to .env:
+LANGCHAIN_TRACING_V2=true
+LANGCHAIN_API_KEY=ls__...
+LANGCHAIN_PROJECT=smartdesk-ai
+```
+
+Tracing is **opt-in** — all three hooks are no-ops when `LANGCHAIN_TRACING_V2` is unset.
+The CLI banner confirms status on startup:
+
+```
+[tracing] LangSmith ENABLED — project: 'smartdesk-ai'
+          View traces → https://smith.langchain.com
+```
+
+---
+
+## Evaluation
+
+Run the evaluation suite after building the knowledge base:
+
+```bash
+# Fast check — routing + escalation accuracy, zero extra LLM calls
+python scripts/run_evaluation.py --skip-llm-judges
+
+# Full suite with LLM-as-judge faithfulness + relevance scoring
+python scripts/run_evaluation.py
+
+# Minimal 6-case smoke test
+python scripts/run_evaluation.py --suite minimal --skip-llm-judges
+
+# Save JSON results
+python scripts/run_evaluation.py --output eval_results.json
+```
+
+**Metrics produced:**
+
+| Metric | What it measures |
+|---|---|
+| Routing accuracy | % of queries the supervisor sends to the correct agent |
+| Escalation Precision | Of all escalations triggered, what % should have escalated |
+| Escalation Recall | Of all queries that should escalate, what % actually did |
+| Faithfulness | LLM judge: does the answer use only retrieved context? (0–1) |
+| Answer Relevance | LLM judge: does the answer address the question? (0–1) |
+
+The 20-case test suite covers: IT covered, IT escalation, HR covered, HR escalation,
+combined IT+HR, ticket create/status (routing-only), and off-topic. LLM judges are
+optional and can be skipped for CI or cost-sensitive runs.
+
 ## Status
 
 | Component | Status |
@@ -450,4 +513,5 @@ that calls `create_ticket()` before `confirm_action()` returns `True`.
 | CLI entry point | ✅ Implemented |
 | Grounding guardrail + response enhancement | ✅ Implemented |
 | Gradio UI (bonus) | ✅ Implemented |
-| Evaluation pipeline | 🔜 Next milestone |
+| Evaluation pipeline (LLM-as-judge) | ✅ Implemented |
+| LangSmith observability | ✅ Implemented |

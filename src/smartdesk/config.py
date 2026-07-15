@@ -69,5 +69,29 @@ class Settings:
         default_factory=lambda: os.getenv("KNOWLEDGE_BASE_DIR", "./data/knowledge_base")
     )
 
+    # HITL mode
+    hitl_mode: str = field(default_factory=lambda: os.getenv("HITL_MODE", "cli"))
+
+    # ── LangSmith observability ───────────────────────────────────────────────
+    # LangGraph auto-traces every graph.invoke() when tracing is enabled.
+    # call_llm() is additionally decorated with @traceable so each LLM call
+    # appears as a named child span with token counts and latency.
+    #
+    # Setup: https://smith.langchain.com → create a project → copy API key
+    langchain_tracing_v2: bool = field(
+        default_factory=lambda: os.getenv("LANGCHAIN_TRACING_V2", "false").lower() == "true"
+    )
+    langchain_api_key: str = field(
+        default_factory=lambda: os.getenv("LANGCHAIN_API_KEY", "")
+    )
+    langchain_project: str = field(
+        default_factory=lambda: os.getenv("LANGCHAIN_PROJECT", "smartdesk-ai")
+    )
+    langchain_endpoint: str = field(
+        default_factory=lambda: os.getenv(
+            "LANGCHAIN_ENDPOINT", "https://api.smith.langchain.com"
+        )
+    )
+
 
 settings = Settings()

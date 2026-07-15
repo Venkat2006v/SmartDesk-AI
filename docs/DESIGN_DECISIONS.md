@@ -188,7 +188,103 @@ rather than one generic KB agent.
 
 ---
 
-## 10. Bonus items
+## 10. Evaluation pipeline
+
+**Implemented:** `evaluation/eval_pipeline.py` + `scripts/run_evaluation.py`
+
+**Approach:** LLM-as-judge (no Ragas dependency). Uses the same `call_llm()`
+adapter already wired throughout the system — the same provider and model
+configured in `.env`.
+
+**Three metric categories:**
+
+| Category | Metrics | How |
+|---|---|---|
+| Routing accuracy | % correct routes | Compare supervisor output to expected_route |
+| Escalation accuracy | Precision / Recall / F1 | Compare should_escalate to CONFIDENCE_THRESHOLD decision |
+| RAG quality | Faithfulness, Answer Relevance | LLM judge scores each 0–5, normalized to 0–1 |
+
+**Test suite:** 20 cases across all routes and escalation scenarios. A 6-case
+`MINIMAL_TEST_SUITE` enables fast smoke tests without LLM judge calls.
+
+**Why LLM-as-judge over Ragas:**
+- Ragas requires a separate evaluation LLM and dataset format overhead
+- Our `call_llm()` adapter already handles both OpenAI and Anthropic — the judge
+  uses the same provider with no additional setup
+- Faithfulness judge checks if the answer uses only retrieved context (aligns
+  directly with the grounding guardrail we already enforce)
+- Relevance judge checks if the answer addresses the question (catches hallucinations
+  that technically overlap with context but don't answer the query)
+
+**LLM judge prompts** use a 0–5 integer scale, then normalize to 0–1. Temperature
+is set to 0.0 for deterministic scores.
+
+**Usage:**
+```bash
+# Full suite with LLM judges
+python scripts/run_evaluation.py
+
+# Fast structural check (routing + escalation only, zero API calls beyond the KB)
+python scripts/run_evaluation.py --skip-llm-judges
+
+# Six-case smoke test
+python scripts/run_evaluation.py --suite minimal --skip-llm-judges
+
+# Save results to JSON for tracking over time
+python scripts/run_evaluation.py --output eval_results.json
+```
+
+---
+
+## 11. Observability — LangSmith tracing
+
+**Why LangSmith over Prometheus/Grafana:**
+Prometheus + Grafana excel at infrastructure metrics (request rate, CPU, pod health).
+LangSmith is purpose-built for the AI-agent layer — it understands LLM calls, token
+counts, retrieved context, and multi-step agent traces. Both can coexist in a production
+deployment, but for an AI agent the LLM-layer observability is more actionable.
+
+**What gets traced per query:**
+
+```
+graph.invoke()                            ← LangGraph auto-traces this
+  └─ supervisor_node                      ← node span (input: query, output: route)
+  └─ it_knowledge_node                    ← node span (input: query, output: response)
+       └─ call_llm [run_type="llm"]       ← @traceable span
+            └─ openai.chat.completions    ← wrap_openai captures token counts
+```
+
+**Three integration points in the code:**
+
+| Layer | How | File |
+|---|---|---|
+| LangGraph graph run | Auto-traced when env vars set | `orchestrator/graph.py` (no changes needed) |
+| `call_llm()` | `@traceable(name="call_llm", run_type="llm")` | `agents/_llm.py` |
+| OpenAI / Anthropic SDK | `wrap_openai()` / `wrap_anthropic()` client wrappers | `agents/_llm.py` |
+
+The `@traceable` decorator and SDK wrappers are **no-ops** when `LANGCHAIN_TRACING_V2`
+is not set — zero runtime cost in environments without LangSmith configured.
+
+**Setup (2 minutes):**
+1. Sign up free at https://smith.langchain.com
+2. Settings → API Keys → Create API Key
+3. Add to `.env`:
+```env
+LANGCHAIN_TRACING_V2=true
+LANGCHAIN_API_KEY=ls__...
+LANGCHAIN_PROJECT=smartdesk-ai
+```
+4. Run the app — every query now appears as a trace in the LangSmith UI.
+
+**Startup indicator:** `main.py` prints tracing status on launch:
+```
+[tracing] LangSmith ENABLED — project: 'smartdesk-ai'
+          View traces → https://smith.langchain.com
+```
+
+---
+
+## 12. Bonus items summary
 
 | Item | Status | Location |
 |---|---|---|
@@ -198,6 +294,7 @@ rather than one generic KB agent.
 | Jira live integration | ✅ Done | `tools/ticketing/ticketing_client.py` |
 | Response enhancement (citations + confidence) | ✅ Done | KB agent nodes + `GROUNDED_SYSTEM_INSTRUCTIONS` |
 | Gradio UI | ✅ Done | `ui/app.py` |
-| Evaluation pipeline | 🔜 Next milestone | `evaluation/eval_pipeline.py` |
+| Evaluation pipeline (LLM-as-judge) | ✅ Done | `evaluation/eval_pipeline.py`, `scripts/run_evaluation.py` |
+| LangSmith observability | ✅ Done | `agents/_llm.py`, `config.py`, `.env.example` |
 | Caching | ❌ Not implemented | — |
 | Cross-session memory | ❌ Not implemented | — |

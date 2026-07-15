@@ -206,6 +206,23 @@ on `settings.llm_provider`. All agent LLM calls go through this single function.
 
 ---
 
+### Evaluation (`evaluation/`, `scripts/run_evaluation.py`)
+
+`eval_pipeline.py` runs 20 test cases end-to-end through the compiled graph and
+measures three metric categories:
+
+| Category | Implementation |
+|---|---|
+| Routing accuracy | Compare `state["route"]` to `expected_route` per case |
+| Escalation accuracy | Precision / Recall / F1 on `should_escalate` flag |
+| RAG quality | LLM-as-judge: faithfulness (0–5) + answer relevance (0–5), normalized to 0–1 |
+
+Key design: `create_ticket` and `ticket_status` cases run routing-only through
+`supervisor_node()` directly — downstream agents are not invoked so HITL and email
+prompts don't block the automated run.
+
+---
+
 ## The hardest design decision: escalation
 
 The spec identifies this as the central design call. Three options evaluated:

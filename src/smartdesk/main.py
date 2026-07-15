@@ -66,6 +66,19 @@ def main() -> None:
         sys.exit(1)
     print("[startup] Ready.\n")
 
+    # ── LangSmith tracing status ────────────────────────────────────────────
+    from smartdesk.config import settings
+    if settings.langchain_tracing_v2 and settings.langchain_api_key:
+        print(
+            f"[tracing] LangSmith ENABLED — project: {settings.langchain_project!r}\n"
+            f"          View traces → https://smith.langchain.com\n"
+        )
+    else:
+        print(
+            "[tracing] LangSmith disabled "
+            "(set LANGCHAIN_TRACING_V2=true + LANGCHAIN_API_KEY in .env to enable)\n"
+        )
+
     # ── Session email — collected lazily by ticket agents when needed ────────
     # Per spec: "when it can't answer, collect the employee's email + issue
     # summary + description". Email is not required for KB queries, so we do
