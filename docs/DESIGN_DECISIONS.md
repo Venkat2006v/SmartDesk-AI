@@ -131,18 +131,27 @@ semantically aware. Trade-off: latency and cost vs. accuracy on edge cases.
 
 ---
 
-## 7. Ticketing — MockTicketingClient (documented fallback)
+## 7. Ticketing — MockTicketingClient + Jira live integration
 
-**Current:** `MockTicketingClient` — fully in-memory, sequential IDs
-(`MOCK-1`, `MOCK-2`, ...), no credentials required.
+**Default:** `MockTicketingClient` — fully in-memory, sequential IDs
+(`MOCK-1`, `MOCK-2`, ...), no credentials required. Used for development and
+the capstone demo (the FAQ explicitly allows mocking with clearly documented
+dummy data).
 
-**Why mock:** the capstone FAQ explicitly allows mocking with clearly documented
-dummy data for partial credit. The mock is built against the same
-`TicketingClient` ABC as the real client — swapping in a live integration
-(Jira, Asana, Notion, GitHub Issues) requires only:
-1. Set `TICKETING_PROVIDER=jira` in `.env`
-2. Implement `RealTicketingClient` in `tools/ticketing/ticketing_client.py`
-   (the interface and `.env.example` credential stubs are already in place)
+**Live Jira integration:** `RealTicketingClient` is fully implemented in
+`tools/ticketing/ticketing_client.py`. Activate by setting:
+```env
+TICKETING_PROVIDER=jira
+JIRA_EMAIL=you@atlassian.com
+TICKETING_API_KEY=<api-token>
+TICKETING_BASE_URL=https://yoursite.atlassian.net
+TICKETING_PROJECT_KEY=SD
+```
+
+**Email tracking in Jira:** Jira labels can't contain `@` or `.`, so requester
+email is encoded as `requester:you_at_company_com` on every created issue. Ticket
+lookup uses JQL `project=SD AND labels="requester:<encoded>"` — no custom field
+needed, works on the free tier.
 
 ---
 
@@ -185,7 +194,10 @@ rather than one generic KB agent.
 |---|---|---|
 | Hybrid search (dense + sparse) | ✅ Done | `rag/embeddings.py`, `rag/vector_store.py` |
 | Multi-agent IT/HR split | ✅ Done | `agents/it_knowledge_agent.py`, `hr_knowledge_agent.py` |
+| Combined IT+HR synthesizer | ✅ Done | `agents/combined_knowledge_agent.py` |
+| Jira live integration | ✅ Done | `tools/ticketing/ticketing_client.py` |
+| Response enhancement (citations + confidence) | ✅ Done | KB agent nodes + `GROUNDED_SYSTEM_INSTRUCTIONS` |
 | Gradio UI | ✅ Done | `ui/app.py` |
-| Evaluation pipeline | 🔜 In progress | `evaluation/eval_pipeline.py` |
+| Evaluation pipeline | 🔜 Next milestone | `evaluation/eval_pipeline.py` |
 | Caching | ❌ Not implemented | — |
 | Cross-session memory | ❌ Not implemented | — |

@@ -3,40 +3,38 @@
 ## High-level flow
 
 ```
-                         ┌─────────────────────┐
-                         │        User          │
-                         │  (CLI or Gradio UI)  │
-                         └──────────┬───────────┘
-                                    │ query + email
-                                    ▼
-                         ┌─────────────────────┐
-                         │   Supervisor Agent   │
-                         │  LLM classifies →    │
-                         │  sets state["route"] │
-                         └──────────┬───────────┘
-     ┌──────────────┬───────────────┼────────────────┬──────────────┐
-     ▼              ▼               ▼                ▼              ▼
-┌──────────┐ ┌──────────┐ ┌──────────────┐ ┌──────────────┐ ┌──────────┐
-│IT Know-  │ │HR Know-  │ │  Ticket      │ │Ticket Status │ │Off-topic │
-│ledge     │ │ledge     │ │  Creation    │ │  Agent       │ │(inline)  │
-│Agent(RAG)│ │Agent(RAG)│ │  Agent       │ │              │ │          │
-└─────┬────┘ └────┬─────┘ └──────┬───────┘ └──────┬───────┘ └────┬─────┘
-      │           │               │                │               │
-      ▼           ▼               ▼                ▼               │
-┌───────────────────────┐  ┌────────────┐  ┌──────────────────┐   │
-│  Qdrant local store   │  │ HITL gate  │  │ Ticketing client │   │
-│  hybrid dense+sparse  │  │ confirm_   │  │ Mock → Real API  │   │
-│  named vectors        │  │ action()   │  │                  │   │
-└───────────────────────┘  └─────┬──────┘  └──────────────────┘   │
-                                  │ confirmed                       │
-                                  ▼                                 │
-                          ┌──────────────────┐                      │
-                          │ create_ticket()  │                      │
-                          │ → ticket_id      │                      │
-                          └──────────────────┘                      │
-                                  │        all nodes → [END]  ◄─────┘
-                                  ▼
-                          state["response"] returned to user
+                              ┌─────────────────────┐
+                              │        User          │
+                              │  (CLI or Gradio UI)  │
+                              └──────────┬───────────┘
+                                         │ query
+                                         ▼
+                              ┌─────────────────────┐
+                              │   Supervisor Agent   │
+                              │  LLM classifies →    │
+                              │  sets state["route"] │
+                              └──────────┬───────────┘
+   ┌──────┬──────────┬───────────────────┼────────────────┬──────────────┐
+   ▼      ▼          ▼                   ▼                ▼              ▼
+it_kb  hr_kb  combined_kb        create_ticket    ticket_status   off_topic
+  │      │         │                    │                │            │
+  │      │    (both IT+HR               │                │            │
+  │      │    retrieval +               │                │            │
+  │      │    synthesizer)              │                │            │
+  └──────┴─────────┴──────┐    ┌────────────┐  ┌──────────────────┐  │
+                           │    │ HITL gate  │  │ Ticketing client │  │
+  ┌────────────────────┐   │    │ confirm_   │  │ Mock → Jira API  │  │
+  │ Qdrant local store │   │    │ action()   │  │                  │  │
+  │ hybrid dense+sparse│   │    └─────┬──────┘  └──────────────────┘  │
+  │ named vectors      │   │          │ confirmed                       │
+  └────────────────────┘   │          ▼                                 │
+                           │  ┌──────────────────┐                      │
+                           │  │ create_ticket()  │                      │
+                           │  │ → ticket_id      │                      │
+                           │  └──────────────────┘                      │
+                           └─────────────────────────── all → [END] ◄───┘
+                                                                ▼
+                                                  state["response"] → user
 ```
 
 ---
@@ -66,7 +64,7 @@ at startup. `run_once(graph, state)` invokes it per turn.
 
 ### Supervisor (`agents/supervisor.py`)
 
-Zero-shot LLM classifier. Sends the query to the LLM with a prompt listing five
+Zero-shot LLM classifier. Sends the query to the LLM with a prompt listing six
 valid route names. LLM responds with exactly one. Falls back to `off_topic` on
 any error — the pipeline never crashes on a routing failure.
 
@@ -74,6 +72,7 @@ any error — the pipeline never crashes on a routing failure.
 |---|---|
 | `it_kb` | IT questions: VPN, MFA, SSO, software, hardware, network |
 | `hr_kb` | HR questions: PTO, benefits, policies, onboarding |
+| `combined_kb` | Query explicitly spans both IT and HR domains |
 | `create_ticket` | Explicit ticket creation request |
 | `ticket_status` | Check/list existing tickets |
 | `off_topic` | Anything outside IT/HR scope |
@@ -103,6 +102,28 @@ else:
   └─ build_grounded_prompt(query, chunks)
   └─ call_llm(GROUNDED_SYSTEM_INSTRUCTIONS, prompt)   → answer
   └─ check_grounding(answer, chunks)                  → warn if low overlap
+```
+
+---
+
+### Combined Knowledge Agent (`agents/combined_knowledge_agent.py`)
+
+Activated only when the supervisor routes to `combined_kb` — i.e. the query explicitly
+spans both IT and HR topics (e.g. "new hire IT setup AND HR enrollment deadlines").
+
+```
+retrieve(query, domain="it")    → it_chunks
+retrieve(query, domain="hr")    → hr_chunks
+decide_escalation on each domain independently
+  both confident  → merge chunks → call_llm(_COMBINED_SYSTEM_INSTRUCTIONS) → synthesized answer
+  one escalates   → answer from confident domain + escalation note for the other
+  both escalate   → "couldn't find confident answers in either KB — create a ticket"
+
+Response format:
+  **IT:** <numbered steps or answer>
+  **HR:** <numbered steps or answer>
+  ---
+  *Sources: ... · IT Confidence: High (85%) · HR Confidence: Medium (62%)*
 ```
 
 ---
@@ -160,7 +181,7 @@ handles confirmation as a multi-turn exchange (controlled by `HITL_MODE` env var
 **`ticketing/`**:
 - `base.py` — `TicketingClient` ABC + `Ticket` TypedDict
 - `mock_client.py` — in-memory mock, sequential IDs (`MOCK-1, MOCK-2, ...`)
-- `ticketing_client.py` — `RealTicketingClient` stub for live integration
+- `ticketing_client.py` — `RealTicketingClient` — Jira-backed live integration (labels email as `requester:<email>`, uses JQL for lookup)
 - `__init__.py` — `get_ticketing_client()` singleton factory
 
 ---

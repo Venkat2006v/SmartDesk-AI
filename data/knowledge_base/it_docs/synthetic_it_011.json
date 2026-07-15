@@ -1,5 +1,5 @@
 {
   "title": "Setting Up Outlook on a New Device",
-  "text": "Q: How do I set up my Outlook email on a new device?\nA: To set up Outlook on a new device, start by downloading the Outlook app from your device's app store or install it from the Office suite. Open the app and select 'Add Account'. Enter your company email address and tap 'Continue'. You may be prompted to enter your password or authenticate using multi-factor authentication. Follow the on-screen instructions to complete the setup. If you encounter any issues, ensure your device is connected to the internet and that you have the correct login credentials. For further assistance, contact the IT helpdesk.",
+  "text": "Q: How do I set up Outlook or my email client on a new device?\nA: To set up Outlook or your email client on a new device, first, download and install the application from the official website or your device's app store. Once installed, open the application and select 'Add Account' or 'Set Up Account'. Enter your company email address and click 'Connect'. You may be prompted to enter your password and additional authentication details, such as a verification code. Follow the on-screen instructions to complete the setup. If you encounter any issues, please contact the IT helpdesk for assistance.",
   "source": "synthetic-llm"
 }

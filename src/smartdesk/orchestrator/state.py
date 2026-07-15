@@ -9,7 +9,7 @@ try:
 except ImportError:
     from typing_extensions import NotRequired  # type: ignore
 
-Route = Literal["it_kb", "hr_kb", "create_ticket", "ticket_status", "off_topic"]
+Route = Literal["it_kb", "hr_kb", "combined_kb", "create_ticket", "ticket_status", "off_topic"]
 
 
 class RetrievedChunk(TypedDict):

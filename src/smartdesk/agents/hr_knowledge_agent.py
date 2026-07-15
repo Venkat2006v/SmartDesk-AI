@@ -7,9 +7,17 @@ Flow:
   2. decide_escalation(query, chunks)        → (should_escalate, confidence)
   3a. Answerable: build prompt → call LLM → check_grounding → state["response"]
   3b. Escalate:   honest "I don't know" + should_escalate=True in state
+
+Response enhancement (state["response"])
+-----------------------------------------
+Same as it_knowledge_agent: grounded LLM answer + source citations + confidence
+label for successful answers; confidence score + ticket CTA for escalations.
 """
 
 from __future__ import annotations
+
+import os
+from typing import List
 
 from smartdesk.agents._llm import call_llm
 from smartdesk.guardrails.grounding import (
@@ -17,15 +25,52 @@ from smartdesk.guardrails.grounding import (
     build_grounded_prompt,
     check_grounding,
 )
-from smartdesk.orchestrator.state import AgentState
+from smartdesk.orchestrator.state import AgentState, RetrievedChunk
 from smartdesk.rag.retriever import decide_escalation, retrieve
 
-_ESCALATION_MESSAGE = (
-    "I searched our HR knowledge base but couldn't find a confident answer to your question. "
-    "This topic may not yet be documented, or it may require personalised guidance from HR. "
-    "I recommend creating a support ticket so an HR team member can follow up with you."
-)
 
+# ---------------------------------------------------------------------------
+# Helpers (mirrors it_knowledge_agent — kept local for domain independence)
+# ---------------------------------------------------------------------------
+
+def _source_label(source: str) -> str:
+    stem = os.path.splitext(os.path.basename(source))[0]
+    return stem.replace("_", " ").title()
+
+
+def _confidence_label(score: float) -> str:
+    if score >= 0.7:
+        return "High"
+    if score >= 0.4:
+        return "Medium"
+    return "Low"
+
+
+def _build_citation_footer(chunks: List[RetrievedChunk], confidence: float) -> str:
+    seen: dict[str, None] = {}
+    for chunk in chunks:
+        label = _source_label(chunk["source"])
+        seen[label] = None
+    sources = ", ".join(seen.keys())
+    label = _confidence_label(confidence)
+    return f"\n\n---\n*Sources: {sources} · Confidence: {label} ({confidence:.0%})*"
+
+
+def _escalation_message(confidence: float) -> str:
+    return (
+        f"I searched our HR knowledge base but couldn't find a confident answer "
+        f"(relevance: {confidence:.0%}).\n\n"
+        "This topic may not yet be documented, or it may require personalised "
+        "guidance from HR.\n\n"
+        "To open a support request, just say:\n"
+        "  **\"Create a ticket — [brief description of your question]\"**\n"
+        "and I'll take care of the rest."
+    )
+
+
+# ---------------------------------------------------------------------------
+# Node
+# ---------------------------------------------------------------------------
 
 def hr_knowledge_node(state: AgentState) -> AgentState:
     """LangGraph node: retrieve HR docs, generate grounded answer or escalate."""
@@ -47,7 +92,7 @@ def hr_knowledge_node(state: AgentState) -> AgentState:
             "retrieved_chunks": chunks,
             "confidence_score": confidence,
             "should_escalate": True,
-            "response": _ESCALATION_MESSAGE,
+            "response": _escalation_message(confidence),
         }
 
     # 3. Build grounded LLM answer
@@ -58,10 +103,13 @@ def hr_knowledge_node(state: AgentState) -> AgentState:
     if not check_grounding(answer, chunks):
         print("[hr_kb] ⚠ Grounding check failed — answer may contain hallucinated content")
 
+    # 4. Append source citations + confidence label  ← this is what enhances state["response"]
+    enhanced_response = answer + _build_citation_footer(chunks, confidence)
+
     return {
         **state,
         "retrieved_chunks": chunks,
         "confidence_score": confidence,
         "should_escalate": False,
-        "response": answer,
+        "response": enhanced_response,
     }

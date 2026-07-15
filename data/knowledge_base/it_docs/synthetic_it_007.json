@@ -1,5 +1,5 @@
 {
   "title": "Reporting Phishing or Suspicious Emails",
-  "text": "Q: How do I report a phishing or suspicious email?\nA: If you receive a phishing or suspicious email, do not click on any links or download any attachments. Immediately forward the email to our IT security team at security@company.com. Include a brief description of why you find the email suspicious. After forwarding, delete the email from your inbox and your deleted items folder. Our IT team will investigate the issue and take necessary actions to protect our network. If you have any doubts or need further assistance, contact the IT helpdesk directly.",
+  "text": "Q: How do I report a phishing or suspicious email?\nA: If you receive a phishing or suspicious email, do not click on any links or download attachments. First, forward the email to our IT helpdesk at helpdesk@company.com with the subject line 'Phishing Report'. Include any relevant details, such as how you received the email and why you find it suspicious. After reporting, delete the email from your inbox. If you accidentally clicked on a link or provided any personal information, please contact the helpdesk immediately for further assistance. Your vigilance helps keep our company safe from cyber threats.",
   "source": "synthetic-llm"
 }

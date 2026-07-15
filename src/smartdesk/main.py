@@ -13,7 +13,9 @@ Prerequisites:
   3. Then run this file.
 
 Session flow:
-  - Ask for email upfront (reused for all ticket operations this session).
+  - Email is NOT collected upfront. Per spec, email is only needed for ticket
+    operations (creation / status). The ticket agents request it when triggered
+    and cache it in state["email"] for the rest of the session.
   - Each user turn invokes the full LangGraph pipeline.
   - Type 'exit' or Ctrl-C to quit.
 """
@@ -64,15 +66,13 @@ def main() -> None:
         sys.exit(1)
     print("[startup] Ready.\n")
 
-    # ── Session email (optional — agents will ask per-turn if not provided) ─
-    try:
-        email_input = input(
-            "Your email (press Enter to skip — required for ticket operations): "
-        ).strip()
-    except (EOFError, KeyboardInterrupt):
-        print("\nbye.")
-        return
-    session_email: str | None = email_input if email_input else None
+    # ── Session email — collected lazily by ticket agents when needed ────────
+    # Per spec: "when it can't answer, collect the employee's email + issue
+    # summary + description". Email is not required for KB queries, so we do
+    # NOT ask upfront. The ticket_creation_agent and ticket_status_agent will
+    # request it the first time a ticket operation is triggered, then we cache
+    # it in session_email so they don't re-ask on subsequent turns.
+    session_email: str | None = None
 
     # ── Main REPL loop ──────────────────────────────────────────────────────
     print()
@@ -92,7 +92,8 @@ def main() -> None:
             _print_help()
             continue
 
-        # Build initial state for this turn
+        # Build initial state for this turn. Pass cached email so ticket agents
+        # don't re-ask once the user has provided it earlier in the session.
         initial_state = {
             "query": raw,
             "email": session_email,
@@ -107,7 +108,7 @@ def main() -> None:
             print(f"[error] {exc}")
             continue
 
-        # Update session email if an agent resolved/validated it this turn
+        # Cache email for the rest of the session once an agent validates it
         if result.get("email"):
             session_email = result["email"]
 

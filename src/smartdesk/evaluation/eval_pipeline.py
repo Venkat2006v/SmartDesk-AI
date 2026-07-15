@@ -1,25 +1,38 @@
-"""Evaluation harness (bonus item).
+"""Evaluation harness for the SmartDesk AI RAG pipeline.
 
-TODO: implement, if you want to go after the evaluation bonus points.
-Options: LangSmith, Ragas, DeepEval, or a hand-rolled comparison against
-expected answers/routes.
+Status: pending implementation (next milestone after core agent completion).
 
-Suggested shape for a test case:
-    {"query": "...", "expected_route": "it_kb", "expected_answer_contains": "..."}
+Planned metrics:
+  - Faithfulness       — does the answer only use retrieved context?
+  - Context Precision  — are retrieved chunks relevant to the question?
+  - Answer Relevance   — does the answer address the question?
 
-run_evaluation should run each case through the orchestrator and report
-per-case pass/fail plus aggregate metrics (e.g. routing accuracy, answer
-relevance/groundedness if using Ragas/DeepEval).
+Planned approach: Ragas (https://docs.ragas.io) or DeepEval.
+The run_evaluation() signature below is the intended public interface — the
+eval script and CI step will call this once it is implemented.
+
+See docs/DESIGN_DECISIONS.md §10 for current status.
 """
 
 from __future__ import annotations
-
 from typing import Any, Dict, List
 
 
 def run_evaluation(test_cases: List[Dict[str, Any]]) -> Dict[str, Any]:
-    """Run `test_cases` through the orchestrator and return a results dict.
+    """Run test_cases through the orchestrator and return RAG quality metrics.
 
-    TODO: implement.
+    Args:
+        test_cases: List of dicts with keys:
+            - "query":    str   — the user question
+            - "answer":   str   — reference / expected answer
+            - "contexts": list  — ground-truth relevant passages (optional)
+
+    Returns:
+        Dict with metric names as keys and float scores as values.
+        e.g. {"faithfulness": 0.92, "context_precision": 0.87, "answer_relevance": 0.91}
     """
-    raise NotImplementedError("TODO: implement evaluation pipeline")
+    raise NotImplementedError(
+        "Evaluation pipeline not yet implemented. "
+        "Planned: Ragas metrics (faithfulness, context_precision, answer_relevance). "
+        "See docs/DESIGN_DECISIONS.md §10 for the implementation plan."
+    )

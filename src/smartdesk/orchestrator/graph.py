@@ -1,4 +1,4 @@
-"""LangGraph orchestrator — wires the five agent nodes into a StateMachine.
+"""LangGraph orchestrator — wires the six agent nodes into a StateMachine.
 
 Graph topology:
 
@@ -6,16 +6,17 @@ Graph topology:
        │
    supervisor          ← classifies query → sets state["route"]
        │
-   ┌───┴────────────────────────────────┐
-   │    conditional edges on route      │
-   ▼                                    ▼
-it_kb    hr_kb    create_ticket    ticket_status
-   │       │            │                │
-   └───────┴────────────┴────────────────┘
-                        │
-                      [END]
+   ┌───┴──────────────────────────────────────────┐
+   │         conditional edges on route           │
+   ▼                                              ▼
+it_kb  hr_kb  combined_kb  create_ticket  ticket_status  off_topic
+   │      │        │             │               │            │
+   └──────┴────────┴─────────────┴───────────────┴────────────┘
+                                 │
+                               [END]
 
-off_topic → [END] directly (supervisor returns response inline).
+combined_kb runs both IT and HR retrievals in a single node and synthesizes
+a unified answer — used only when the query explicitly spans both domains.
 
 Usage:
     from smartdesk.orchestrator.graph import build_orchestrator, run_once
@@ -31,6 +32,7 @@ from typing import Any
 
 from langgraph.graph import END, StateGraph
 
+from smartdesk.agents.combined_knowledge_agent import combined_knowledge_node
 from smartdesk.agents.hr_knowledge_agent import hr_knowledge_node
 from smartdesk.agents.it_knowledge_agent import it_knowledge_node
 from smartdesk.agents.supervisor import supervisor_node
@@ -79,6 +81,7 @@ def build_orchestrator() -> Any:
     graph.add_node("supervisor", supervisor_node)
     graph.add_node("it_kb", it_knowledge_node)
     graph.add_node("hr_kb", hr_knowledge_node)
+    graph.add_node("combined_kb", combined_knowledge_node)
     graph.add_node("create_ticket", ticket_creation_node)
     graph.add_node("ticket_status", ticket_status_node)
     graph.add_node("off_topic", _off_topic_node)
@@ -93,6 +96,7 @@ def build_orchestrator() -> Any:
         {
             "it_kb": "it_kb",
             "hr_kb": "hr_kb",
+            "combined_kb": "combined_kb",
             "create_ticket": "create_ticket",
             "ticket_status": "ticket_status",
             "off_topic": "off_topic",
@@ -100,7 +104,7 @@ def build_orchestrator() -> Any:
     )
 
     # All agent nodes → END (single-turn; each node sets state["response"])
-    for node_name in ("it_kb", "hr_kb", "create_ticket", "ticket_status", "off_topic"):
+    for node_name in ("it_kb", "hr_kb", "combined_kb", "create_ticket", "ticket_status", "off_topic"):
         graph.add_edge(node_name, END)
 
     return graph.compile()
