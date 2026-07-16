@@ -182,6 +182,19 @@ EMBEDDING_MODEL=text-embedding-3-small
 # Leave TICKETING_PROVIDER=mock for development
 ```
 
+**To connect a live ticketing system** (optional — mock works out of the box):
+
+*Jira:*
+```env
+TICKETING_PROVIDER=jira
+TICKETING_API_KEY=<your Atlassian API token>   # generate at id.atlassian.com/manage-profile/security/api-tokens
+TICKETING_BASE_URL=https://<your-site>.atlassian.net
+TICKETING_PROJECT_KEY=SD                        # the project key shown in your Jira board URL
+JIRA_EMAIL=you@company.com                      # the email linked to the API token
+```
+
+*Asana / Notion:* follow the same pattern — set `TICKETING_PROVIDER=asana` or `TICKETING_PROVIDER=notion`, provide the relevant `TICKETING_API_KEY`, and implement the corresponding client in `src/smartdesk/tools/ticketing/` following the `TicketingClient` ABC in `base.py`.
+
 ### 3. Build the knowledge base
 
 ```bash
@@ -498,21 +511,6 @@ that calls `create_ticket()` before `confirm_action()` returns `True`.
 | `HITL_MODE` | `cli` | `cli` (stdin) or `ui` (Gradio) |
 | `SMARTDESK_VERBOSE` | `true` | Set to `false` to suppress agent debug output |
 | `JIRA_EMAIL` | — | Atlassian account email (Jira only) |
-
-### Switching to a live ticketing provider
-
-The default `TICKETING_PROVIDER=mock` requires no credentials. To connect a real ticketing system, update your `.env` as follows:
-
-**Jira:**
-```env
-TICKETING_PROVIDER=jira
-TICKETING_API_KEY=<your Atlassian API token>   # generate at id.atlassian.com/manage-profile/security/api-tokens
-TICKETING_BASE_URL=https://<your-site>.atlassian.net
-TICKETING_PROJECT_KEY=SD                        # the project key shown in your Jira board URL
-JIRA_EMAIL=you@company.com                      # the email linked to the API token
-```
-
-**Asana / Notion:** follow the same pattern — set `TICKETING_PROVIDER=asana` or `TICKETING_PROVIDER=notion`, provide the relevant `TICKETING_API_KEY`, and implement the corresponding client in `src/smartdesk/tools/ticketing/` following the `TicketingClient` ABC defined in `base.py`.
 
 ## Observability (LangSmith)
 
