@@ -1,0 +1,5 @@
+{
+  "title": "Outlook / Email Client Setup on a New Device",
+  "text": "Q: How do I set up Outlook or my email client on a new device?\nA: To set up Outlook or your email client on a new device, follow these steps: Step 1: Open Outlook or your preferred email client. Step 2: Click on 'File' in the top left corner. Step 3: Select 'Add Account' or 'Account Settings' depending on your client. Step 4: Enter your email address (format: username@company.com) and click 'Connect'. Step 5: When prompted, enter your password (use your network password). Step 6: If prompted for server settings, use the following: Incoming server - mail.company.com, Outgoing server - smtp.company.com. Step 7: Click 'Next' and wait for the setup to complete. Step 8: Once finished, click 'Finish' to start using your email. If you encounter issues, please contact the IT helpdesk for assistance.",
+  "source": "synthetic-llm"
+}

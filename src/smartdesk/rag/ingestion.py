@@ -122,7 +122,7 @@ def load_huggingface_it() -> List[Document]:
     If not set, this function returns [] and the pipeline falls back to
     synthetic IT docs only — which is the current default.
     """
-    IT_DATASET_NAME = None   # Set to a HF dataset name to enable real IT data
+    IT_DATASET_NAME = "Console-AI/IT-helpdesk-synthetic-tickets"   # Set to a HF dataset name to enable real IT data
 
     if not IT_DATASET_NAME:
         print("[ingestion] No HF IT dataset configured — skipping. Set IT_DATASET_NAME in ingestion.py.")
