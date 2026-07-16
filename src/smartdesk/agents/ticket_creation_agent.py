@@ -88,7 +88,15 @@ def ticket_creation_node(state: AgentState) -> AgentState:
     if not summary or not description:
         summary, description, category, priority = _extract_ticket_fields(query)
 
-    if not summary:
+    # Reject empty OR generic content-free summaries like "Create a ticket"
+    # that the LLM extracts when the user gives no actual issue description.
+    _GENERIC = {
+        "create a ticket", "create ticket", "open a ticket", "open ticket",
+        "raise a ticket", "raise ticket", "log a ticket", "log ticket",
+        "create a support ticket", "support ticket", "ticket creation request",
+        "ticket request", "create", "ticket",
+    }
+    if not summary or summary.lower().strip(".,!? ") in _GENERIC:
         return {
             **state,
             "response": (

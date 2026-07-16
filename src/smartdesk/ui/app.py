@@ -68,8 +68,11 @@ def _respond(
 
     # ── HITL confirmation turn ──────────────────────────────────────────────
     if pending_ticket:
-        answer = message.lower()
-        if answer in {"yes", "y", "confirm", "ok", "yeah", "yep"}:
+        answer = message.lower().strip()
+        _YES_WORDS = {"yes", "y", "confirm", "ok", "yeah", "yep"}
+        _NO_WORDS  = {"no", "n", "cancel", "nope", "nah", "abort", "stop"}
+
+        if answer in _YES_WORDS:
             from smartdesk.tools.ticketing import get_ticketing_client
             from smartdesk.guardrails.validation import with_retry
 
@@ -98,11 +101,18 @@ def _respond(
             # Clear ticket fields after creation
             return "", history, email or session_email, None, None, None, None, session_last_kb_query
 
-        else:
+        elif answer in _NO_WORDS:
+            # Clear standalone "no" / "cancel" — user explicitly declined
             bot_msg = "Ticket creation cancelled. Let me know if you need anything else."
             history.append({"role": "user", "content": message})
             history.append({"role": "assistant", "content": bot_msg})
             return "", history, session_email, None, None, None, None, session_last_kb_query
+
+        else:
+            # Not a clear yes/no — user sent a new message while HITL was pending
+            # (e.g. "no create a ticket with this description — ...").
+            # Clear the pending ticket and fall through to normal query processing.
+            pending_ticket = None
 
     # ── Normal query turn ────────────────────────────────────────────────────
     # Enrich vague follow-ups and ticket requests with conversation context.
