@@ -148,15 +148,18 @@ def _it_prompt(topic: str) -> str:
         f"Write a detailed FAQ entry for company employees about: '{topic}'.\n\n"
         f"IMPORTANT: If the topic involves any operating-system-specific steps "
         f"(file paths, menus, settings, dialogs), you MUST cover both Windows and macOS. "
-        f"Label each section clearly (e.g. 'Windows:' and 'macOS:') so employees on "
-        f"either platform can follow the instructions. Do not write steps for only one OS.\n\n"
+        f"Label each section inline within the answer string using plain text prefixes "
+        f"(e.g. 'Windows: Step 1 ... macOS: Step 1 ...'). "
+        f"Do NOT use a nested JSON object or list for the answer — it must be a single "
+        f"plain string. Do not write steps for only one OS.\n\n"
         f"Return a JSON object with exactly these keys:\n"
-        f"  \"title\": short title for this entry (do not include a specific OS in the title "
+        f"  \"title\": short string — title for this entry (do not name a specific OS "
         f"unless the topic is genuinely OS-exclusive)\n"
-        f"  \"question\": the natural question an employee would ask\n"
-        f"  \"answer\": a clear, practical answer with numbered steps where applicable "
-        f"(e.g. 'Step 1: Open ... Step 2: Click ...'). Include specific tool names, "
-        f"menu paths, or credentials format where relevant. Aim for 8-12 sentences or steps.\n\n"
+        f"  \"question\": short string — the natural question an employee would ask\n"
+        f"  \"answer\": single plain string (NOT a nested object or list) — a clear, "
+        f"practical answer with numbered steps where applicable. Include specific tool "
+        f"names, menu paths, or credentials format where relevant. "
+        f"Aim for 8-12 sentences or steps.\n\n"
         f"{_JSON_INSTRUCTION}"
     )
 
@@ -199,10 +202,22 @@ def _parse_response(raw: str, topic: str) -> dict:
             "source": "synthetic-llm",
         }
 
-    question = data.get("question", "").strip()
-    answer = data.get("answer", "").strip()
+    def _to_str(val, fallback: str = "") -> str:
+        """Coerce any value to a plain string — guards against nested dicts/lists."""
+        if isinstance(val, str):
+            return val.strip()
+        if isinstance(val, dict):
+            # Flatten a nested dict (e.g. {"Windows": "...", "macOS": "..."})
+            return " ".join(f"{k}: {v}" for k, v in val.items()).strip()
+        if isinstance(val, list):
+            return " ".join(str(item) for item in val).strip()
+        return str(val).strip() if val else fallback
+
+    question = _to_str(data.get("question", ""))
+    answer   = _to_str(data.get("answer", ""))
+    title    = _to_str(data.get("title", ""), fallback=topic)
     return {
-        "title": data.get("title", topic).strip(),
+        "title": title,
         "text": f"Q: {question}\nA: {answer}" if question else answer,
         "source": "synthetic-llm",
     }
