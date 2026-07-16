@@ -1,0 +1,5 @@
+{
+  "title": "SSO Setup and Troubleshooting",
+  "text": "Q: How do I set up and troubleshoot Single Sign-On (SSO)?\nA: To set up SSO, first ensure you have the necessary credentials from your IT department. Windows: Step 1 - Open the Settings app and navigate to Accounts > Access work or school. Step 2 - Click on 'Connect' and enter your company email address. Step 3 - Follow the prompts to authenticate using your SSO credentials. macOS: Step 1 - Open System Preferences and select 'Users & Groups'. Step 2 - Click on 'Login Options' and then 'Network Account Server'. Step 3 - Enter your company email and follow the prompts to authenticate. If you encounter issues, check your internet connection and ensure your credentials are correct. Windows: Step 4 - If you receive an error, try clearing your browser cache or using a different browser. macOS: Step 4 - If you face problems, restart your Mac and try logging in again. If issues persist, contact the IT helpdesk for further assistance, providing any error messages you received during the process.",
+  "source": "synthetic-llm"
+}

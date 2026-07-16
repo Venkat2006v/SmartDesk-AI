@@ -1,0 +1,5 @@
+{
+  "title": "Outlook / Email Client Setup on a New Device",
+  "text": "Q: How do I set up Outlook or my email client on a new device?\nA: Windows: Step 1: Open Outlook from the Start menu. Step 2: If prompted, select 'Next' to start the setup wizard. Step 3: Choose 'Email Account' and click 'Next'. Step 4: Enter your name, email address, and password, then click 'Next'. Step 5: Outlook will test your account settings; once completed, click 'Finish'. macOS: Step 1: Open Outlook from the Applications folder. Step 2: If prompted, select 'Get Started'. Step 3: Choose 'Add Account' and select 'Exchange' or 'IMAP/POP' based on your email service. Step 4: Enter your email address and click 'Continue'. Step 5: Enter your password when prompted and click 'Add Account'. Step 6: Once the account is added, you can customize your settings under 'Preferences'. Ensure you have your email credentials ready, and if you encounter issues, contact IT support for assistance.",
+  "source": "synthetic-llm"
+}

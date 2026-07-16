@@ -1,0 +1,5 @@
+{
+  "title": "How to Report a Phishing or Suspicious Email",
+  "text": "Q: What should I do if I receive a phishing or suspicious email?\nA: If you receive a phishing or suspicious email, it's important to report it immediately. Windows: Step 1: Open your email client (e.g., Outlook). Step 2: Select the suspicious email. Step 3: Click on 'Report Message' in the toolbar and choose 'Phishing'. Step 4: Follow any prompts to confirm your report. macOS: Step 1: Open your email client (e.g., Apple Mail). Step 2: Select the suspicious email. Step 3: Click on 'Message' in the menu bar, then select 'Mark as Junk'. Step 4: You may also forward the email to your IT helpdesk at helpdesk@company.com. Additionally, ensure you do not click any links or download attachments from the suspicious email. Always verify the sender's email address and look for signs of phishing, such as poor grammar or urgent requests for personal information. If you're unsure, contact the IT helpdesk for further assistance.",
+  "source": "synthetic-llm"
+}
