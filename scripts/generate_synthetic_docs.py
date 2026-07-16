@@ -35,6 +35,7 @@ IT_TOPICS: list[str] = [
     "How to request a new laptop or peripheral hardware",
     "Wi-Fi troubleshooting: can't connect to corporate network",
     "How to install approved software from the software catalog",
+    "How to request access to a new software tool or application",
     "Setting up multi-factor authentication (MFA / TOTP)",
     "How to report a phishing or suspicious email",
     "Remote desktop and screen-sharing setup (Windows and Mac)",
