@@ -88,6 +88,11 @@ def main() -> None:
     session_ticket_summary: str | None = None
     session_ticket_description: str | None = None
     session_pending_action: str | None = None
+    # Last successfully answered KB query — used to inject context into vague
+    # follow-up messages ("still not working") and vague ticket requests
+    # ("create a ticket for this issue") so the supervisor and ticket agent
+    # can understand what "this" refers to.
+    session_last_kb_query: str | None = None
 
     # ── Main REPL loop ──────────────────────────────────────────────────────
     print()
@@ -107,10 +112,29 @@ def main() -> None:
             _print_help()
             continue
 
+        # Enrich vague follow-ups and ticket requests with conversation context.
+        # Covers two cases:
+        #   "I'm still not able to fix it"   → supervisor can't route without context
+        #   "Create a ticket for this issue" → ticket agent can't extract a summary
+        _FOLLOWUP_WORDS = {"still", "not working", "didn't work", "doesn't work",
+                           "same issue", "same problem", "not fixed", "still failing"}
+        _VAGUE_TICKET   = {"this issue", "the issue", "the problem", "this problem",
+                           "the above", "for this", "about this"}
+        _TICKET_WORDS   = {"ticket", "create", "raise", "open", "log"}
+        raw_lower = raw.lower()
+
+        query = raw
+        if session_last_kb_query:
+            is_vague_followup = any(w in raw_lower for w in _FOLLOWUP_WORDS)
+            is_vague_ticket   = (any(ref in raw_lower for ref in _VAGUE_TICKET)
+                                 and any(kw in raw_lower for kw in _TICKET_WORDS))
+            if is_vague_followup or is_vague_ticket:
+                query = f"{raw}\n\n[Context: the user was previously asking about: {session_last_kb_query}]"
+
         # Build initial state for this turn. Pass cached session values so
         # agents don't re-ask for things already collected this session.
         initial_state = {
-            "query": raw,
+            "query": query,
             "email": session_email,
             "ticket_summary": session_ticket_summary,
             "ticket_description": session_ticket_description,
@@ -125,6 +149,11 @@ def main() -> None:
         except Exception as exc:
             print(f"[error] {exc}")
             continue
+
+        # Track last successfully answered KB query for follow-up context injection
+        route = result.get("route", "")
+        if route in ("it_kb", "hr_kb", "combined_kb") and not result.get("should_escalate"):
+            session_last_kb_query = raw  # store the original user query (not enriched)
 
         # Cache validated values for the rest of the session
         if result.get("email"):

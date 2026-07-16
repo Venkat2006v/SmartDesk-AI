@@ -54,16 +54,17 @@ def _respond(
     session_ticket_summary: str | None,
     session_ticket_description: str | None,
     session_pending_action: str | None,
-) -> tuple[str, list, str, dict | None, str | None, str | None, str | None]:
+    session_last_kb_query: str | None,
+) -> tuple[str, list, str, dict | None, str | None, str | None, str | None, str | None]:
     """Process one user turn.
 
     Returns:
         (cleared_input, history, email, pending_ticket,
-         ticket_summary, ticket_description, pending_action)
+         ticket_summary, ticket_description, pending_action, last_kb_query)
     """
     message = message.strip()
     if not message:
-        return "", history, session_email, pending_ticket, session_ticket_summary, session_ticket_description, session_pending_action
+        return "", history, session_email, pending_ticket, session_ticket_summary, session_ticket_description, session_pending_action, session_last_kb_query
 
     # ── HITL confirmation turn ──────────────────────────────────────────────
     if pending_ticket:
@@ -95,17 +96,33 @@ def _respond(
             history.append({"role": "user", "content": message})
             history.append({"role": "assistant", "content": bot_msg})
             # Clear ticket fields after creation
-            return "", history, email or session_email, None, None, None, None
+            return "", history, email or session_email, None, None, None, None, session_last_kb_query
 
         else:
             bot_msg = "Ticket creation cancelled. Let me know if you need anything else."
             history.append({"role": "user", "content": message})
             history.append({"role": "assistant", "content": bot_msg})
-            return "", history, session_email, None, None, None, None
+            return "", history, session_email, None, None, None, None, session_last_kb_query
 
     # ── Normal query turn ────────────────────────────────────────────────────
+    # Enrich vague follow-ups and ticket requests with conversation context.
+    _FOLLOWUP_WORDS = {"still", "not working", "didn't work", "doesn't work",
+                       "same issue", "same problem", "not fixed", "still failing"}
+    _VAGUE_TICKET   = {"this issue", "the issue", "the problem", "this problem",
+                       "the above", "for this", "about this"}
+    _TICKET_WORDS   = {"ticket", "create", "raise", "open", "log"}
+    msg_lower = message.lower()
+
+    query = message
+    if session_last_kb_query:
+        is_vague_followup = any(w in msg_lower for w in _FOLLOWUP_WORDS)
+        is_vague_ticket   = (any(ref in msg_lower for ref in _VAGUE_TICKET)
+                             and any(kw in msg_lower for kw in _TICKET_WORDS))
+        if is_vague_followup or is_vague_ticket:
+            query = f"{message}\n\n[Context: the user was previously asking about: {session_last_kb_query}]"
+
     initial_state = {
-        "query": message,
+        "query": query,
         "email": session_email or None,
         "ticket_summary": session_ticket_summary or None,
         "ticket_description": session_ticket_description or None,
@@ -125,6 +142,12 @@ def _respond(
     new_ticket_summary = result.get("ticket_summary") or session_ticket_summary
     new_ticket_description = result.get("ticket_description") or session_ticket_description
     new_pending_action = result.get("pending_action") or None
+
+    # Track last successfully answered KB query for follow-up context injection
+    new_last_kb_query = session_last_kb_query
+    route = result.get("route", "")
+    if route in ("it_kb", "hr_kb", "combined_kb") and not result.get("should_escalate"):
+        new_last_kb_query = message  # original message, not enriched query
 
     # Clear ticket fields after successful creation
     if result.get("ticket_id"):
@@ -159,7 +182,7 @@ def _respond(
 
     history.append({"role": "user", "content": message})
     history.append({"role": "assistant", "content": response})
-    return "", history, resolved_email, new_pending, new_ticket_summary, new_ticket_description, new_pending_action
+    return "", history, resolved_email, new_pending, new_ticket_summary, new_ticket_description, new_pending_action, new_last_kb_query
 
 
 # ---------------------------------------------------------------------------
@@ -187,9 +210,10 @@ with gr.Blocks(title="SmartDesk AI", theme=gr.themes.Soft()) as demo:
     ticket_summary_state = gr.State(None)
     ticket_description_state = gr.State(None)
     pending_action_state = gr.State(None)
+    last_kb_query_state = gr.State(None)  # last successfully answered KB query (for follow-up context)
 
-    _inputs  = [msg_box, chatbot, email_state, pending_state, ticket_summary_state, ticket_description_state, pending_action_state]
-    _outputs = [msg_box, chatbot, email_state, pending_state, ticket_summary_state, ticket_description_state, pending_action_state]
+    _inputs  = [msg_box, chatbot, email_state, pending_state, ticket_summary_state, ticket_description_state, pending_action_state, last_kb_query_state]
+    _outputs = [msg_box, chatbot, email_state, pending_state, ticket_summary_state, ticket_description_state, pending_action_state, last_kb_query_state]
 
     send_btn.click(_respond, inputs=_inputs, outputs=_outputs)
     msg_box.submit(_respond, inputs=_inputs, outputs=_outputs)
