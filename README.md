@@ -138,6 +138,12 @@ SmartDesk-AI/
     └── test_guardrails.py
 ```
 
+## Prerequisites
+
+- Python 3.10 or higher (developed and tested on Python 3.14)
+- An OpenAI API key (or Anthropic — set `LLM_PROVIDER=anthropic` in `.env`)
+- A LangSmith account for tracing and evaluation (free at [smith.langchain.com](https://smith.langchain.com)) — optional but recommended
+
 ## Getting started
 
 ### 1. Install
