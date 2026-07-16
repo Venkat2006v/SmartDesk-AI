@@ -8,9 +8,9 @@ langgraph>=0.2.0
 # crewai>=0.60.0
 # google-adk>=1.0.0
 
-# --- LLM SDKs (uncomment what you need) ---
-# openai>=1.40.0
-# anthropic>=0.34.0
+# --- LLM SDKs ---
+openai>=1.40.0             # default provider (LLM_PROVIDER=openai)
+# anthropic>=0.34.0       # uncomment (or run: pip install anthropic) if switching to LLM_PROVIDER=anthropic
 # google-generativeai>=0.7.0
 # groq>=0.9.0
 

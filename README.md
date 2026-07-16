@@ -189,6 +189,23 @@ EMBEDDING_MODEL=text-embedding-3-small
 # Leave TICKETING_PROVIDER=mock for development
 ```
 
+**To switch to Anthropic** (or another provider), update these three values in `.env`:
+
+```env
+LLM_PROVIDER=anthropic
+LLM_API_KEY=sk-ant-...
+LLM_MODEL=claude-3-5-haiku-20241022   # or claude-opus-4-8, claude-sonnet-4-6, etc.
+```
+
+Then install the Anthropic SDK:
+```bash
+pip install anthropic>=0.34.0
+```
+
+No code changes are needed — `agents/_llm.py` dispatches to the configured provider automatically.
+
+---
+
 **To connect a live ticketing system** (optional — mock works out of the box):
 
 *Jira:*
