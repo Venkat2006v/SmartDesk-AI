@@ -30,7 +30,7 @@ from smartdesk.config import settings  # noqa: E402
 # ---------------------------------------------------------------------------
 
 IT_TOPICS: list[str] = [
-    "How to set up and connect to the company VPN on macOS",
+    "How to set up and connect to the company VPN (Windows and macOS)",
     "How to reset your Active Directory / SSO password",
     "How to request a new laptop or peripheral hardware",
     "Wi-Fi troubleshooting: can't connect to corporate network",
@@ -145,12 +145,17 @@ def _it_prompt(topic: str) -> str:
     return (
         f"You are writing entries for a company IT helpdesk knowledge base. "
         f"Write a detailed FAQ entry for company employees about: '{topic}'.\n\n"
+        f"IMPORTANT: If the topic involves any operating-system-specific steps "
+        f"(file paths, menus, settings, dialogs), you MUST cover both Windows and macOS. "
+        f"Label each section clearly (e.g. 'Windows:' and 'macOS:') so employees on "
+        f"either platform can follow the instructions. Do not write steps for only one OS.\n\n"
         f"Return a JSON object with exactly these keys:\n"
-        f"  \"title\": short title for this entry\n"
+        f"  \"title\": short title for this entry (do not include a specific OS in the title "
+        f"unless the topic is genuinely OS-exclusive)\n"
         f"  \"question\": the natural question an employee would ask\n"
         f"  \"answer\": a clear, practical answer with numbered steps where applicable "
         f"(e.g. 'Step 1: Open ... Step 2: Click ...'). Include specific tool names, "
-        f"menu paths, or credentials format where relevant. Aim for 6-10 sentences or steps.\n\n"
+        f"menu paths, or credentials format where relevant. Aim for 8-12 sentences or steps.\n\n"
         f"{_JSON_INSTRUCTION}"
     )
 
