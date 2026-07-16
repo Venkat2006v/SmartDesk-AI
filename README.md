@@ -166,7 +166,14 @@ pip install -e .[dev]
 ### 2. Configure
 
 ```bash
+# macOS / Linux
 cp .env.example .env
+
+# Windows (Command Prompt)
+copy .env.example .env
+
+# Windows (PowerShell)
+Copy-Item .env.example .env
 ```
 
 Open `.env` and fill in at minimum:
