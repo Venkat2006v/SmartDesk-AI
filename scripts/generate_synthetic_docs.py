@@ -36,13 +36,16 @@ IT_TOPICS: list[str] = [
     "Wi-Fi troubleshooting: can't connect to corporate network",
     "How to install approved software from the software catalog",
     "How to request access to a new software tool or application",
-    "Setting up multi-factor authentication (MFA / TOTP)",
     "How to report a phishing or suspicious email",
     "Remote desktop and screen-sharing setup (Windows and Mac)",
     "Printer setup and network printer troubleshooting",
     "How to access shared network drives and file shares",
     "Outlook / email client setup on a new device",
     "How to submit an IT support ticket and what to include",
+    "LDAP (Lightweight Directory Access Protocol) setup and troubleshooting",
+    "MFA (Multi-Factor Authentication) setup and troubleshooting",
+    "TOTP (Time-Based One-Time Password) setup and troubleshooting",
+    "SSO (Single Sign-On) setup and troubleshooting"
 ]
 
 HR_TOPICS: list[str] = [

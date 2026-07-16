@@ -116,7 +116,20 @@ def it_knowledge_node(state: AgentState) -> AgentState:
     if not check_grounding(answer, chunks):
         vprint("[it_kb] ⚠ Grounding check failed — answer may contain hallucinated content")
 
-    # 4. Append source citations + confidence label  ← this is what enhances state["response"]
+    # 4. If the LLM used the fallback phrase, the context didn't cover the question.
+    #    Treat this the same as a threshold escalation so we don't show a misleading
+    #    "Sources: ... · Confidence: High" footer alongside "I don't have enough info."
+    if "don't have enough information" in answer:
+        vprint("[it_kb] LLM fallback phrase detected — converting to escalation response")
+        return {
+            **state,
+            "retrieved_chunks": chunks,
+            "confidence_score": confidence,
+            "should_escalate": True,
+            "response": _escalation_message(confidence),
+        }
+
+    # 5. Append source citations + confidence label
     enhanced_response = answer + _build_citation_footer(chunks, confidence)
 
     return {

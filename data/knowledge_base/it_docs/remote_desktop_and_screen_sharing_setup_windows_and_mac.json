@@ -1,5 +1,0 @@
-{
-  "title": "Remote Desktop and Screen-Sharing Setup (Windows and Mac)",
-  "text": "Q: How do I set up remote desktop and screen-sharing on my Windows or Mac computer?\nA: To set up remote desktop and screen-sharing, follow these steps: Step 1: For Windows, open 'Settings' and navigate to 'System' > 'Remote Desktop'. Toggle 'Enable Remote Desktop' to 'On'. For Mac, go to 'System Preferences' > 'Sharing' and check 'Screen Sharing'. Step 2: Note the name of your computer displayed in the settings, as you will need this to connect. Step 3: Ensure that your firewall allows remote desktop connections; for Windows, go to 'Control Panel' > 'Windows Defender Firewall' > 'Allow an app or feature' and enable 'Remote Desktop'. Step 4: For Mac, ensure that 'Remote Management' is unchecked if you only want screen sharing. Step 5: To connect, use the 'Remote Desktop Connection' app on Windows or 'Screen Sharing' from the Finder on Mac. Step 6: Enter the computer name or IP address and your credentials when prompted. Step 7: For additional security, consider using a VPN when accessing remotely. If you encounter issues, contact IT support.",
-  "source": "synthetic-llm"
-}

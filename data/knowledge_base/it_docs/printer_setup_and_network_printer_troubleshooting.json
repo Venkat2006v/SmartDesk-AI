@@ -1,5 +1,0 @@
-{
-  "title": "Printer Setup and Network Printer Troubleshooting",
-  "text": "Q: How do I set up a printer and troubleshoot network printer issues?\nA: To set up a printer, first ensure it is powered on and connected to the network. Windows: Go to 'Settings' > 'Devices' > 'Printers & Scanners' > 'Add a printer or scanner'. Follow the prompts to select your printer. macOS: Open 'System Preferences' > 'Printers & Scanners' > Click the '+' button to add a printer. Select your printer from the list and click 'Add'. If you encounter issues, check the printer's connection to the network. Windows: Open 'Control Panel' > 'Devices and Printers', right-click your printer, and select 'See what's printing' to check for stuck jobs. macOS: Open 'Printers & Scanners', select your printer, and click 'Open Print Queue' to view and manage print jobs. If the printer is offline, ensure it is connected to the same network as your computer. You may need to restart the printer and your computer. If problems persist, check for any error messages on the printer display or consult the printer's manual for troubleshooting specific error codes.",
-  "source": "synthetic-llm"
-}
