@@ -149,10 +149,18 @@ SmartDesk-AI/
 
 ### 1. Install
 
+**macOS / Linux:**
 ```bash
-python -m venv .venv && source .venv/bin/activate
+python3 -m venv .venv && source .venv/bin/activate
 pip install -e .          # installs all dependencies + the smartdesk package
 pip install -e '.[dev]'   # add this if you also want to run the test suite
+```
+
+**Windows:**
+```bash
+python -m venv .venv && .venv\Scripts\activate
+pip install -e .
+pip install -e .[dev]
 ```
 
 ### 2. Configure
