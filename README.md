@@ -432,6 +432,7 @@ that calls `create_ticket()` before `confirm_action()` returns `True`.
 | `CONFIDENCE_THRESHOLD` | `0.4` | Escalation threshold (0–1) |
 | `TICKETING_PROVIDER` | `mock` | `mock` or `jira` |
 | `HITL_MODE` | `cli` | `cli` (stdin) or `ui` (Gradio) |
+| `SMARTDESK_VERBOSE` | `true` | Set to `false` to suppress agent debug output |
 | `JIRA_EMAIL` | — | Atlassian account email (Jira only) |
 
 ## Observability (LangSmith)

@@ -26,6 +26,7 @@ from __future__ import annotations
 import os
 from typing import List, Tuple
 
+from smartdesk._log import vprint
 from smartdesk.agents._llm import call_llm
 from smartdesk.guardrails.grounding import (
     build_grounded_prompt,
@@ -106,7 +107,7 @@ def _escalation_note(domain: str, confidence: float) -> str:
 def combined_knowledge_node(state: AgentState) -> AgentState:
     """LangGraph node: retrieve from both IT and HR, synthesize a unified answer."""
     query = state.get("query", "")
-    print(f"[combined_kb] Retrieving from both IT and HR for: {query!r}")
+    vprint(f"[combined_kb] Retrieving from both IT and HR for: {query!r}")
 
     # 1. Retrieve from both domains independently
     it_chunks = retrieve(query, domain="it")
@@ -114,12 +115,12 @@ def combined_knowledge_node(state: AgentState) -> AgentState:
 
     it_count = f"{len(it_chunks)} chunks (top: {it_chunks[0]['score']:.3f})" if it_chunks else "0 chunks"
     hr_count = f"{len(hr_chunks)} chunks (top: {hr_chunks[0]['score']:.3f})" if hr_chunks else "0 chunks"
-    print(f"[combined_kb] IT: {it_count} | HR: {hr_count}")
+    vprint(f"[combined_kb] IT: {it_count} | HR: {hr_count}")
 
     # 2. Escalation decision per domain
     it_escalate, it_conf = decide_escalation(query, it_chunks)
     hr_escalate, hr_conf = decide_escalation(query, hr_chunks)
-    print(f"[combined_kb] IT escalate={it_escalate} ({it_conf:.3f}) | HR escalate={hr_escalate} ({hr_conf:.3f})")
+    vprint(f"[combined_kb] IT escalate={it_escalate} ({it_conf:.3f}) | HR escalate={hr_escalate} ({hr_conf:.3f})")
 
     # 3a. Both domains have no confident answer → suggest ticket
     if it_escalate and hr_escalate:
@@ -173,7 +174,7 @@ def combined_knowledge_node(state: AgentState) -> AgentState:
     )
 
     if not check_grounding(answer, all_chunks):
-        print("[combined_kb] ⚠ Grounding check failed — answer may contain hallucinated content")
+        vprint("[combined_kb] ⚠ Grounding check failed — answer may contain hallucinated content")
 
     enhanced_response = answer + _build_combined_footer(it_chunks, hr_chunks, it_conf, hr_conf)
 

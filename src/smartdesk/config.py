@@ -72,6 +72,11 @@ class Settings:
     # HITL mode
     hitl_mode: str = field(default_factory=lambda: os.getenv("HITL_MODE", "cli"))
 
+    # Verbose agent logging — set SMARTDESK_VERBOSE=false to suppress agent debug output
+    verbose: bool = field(
+        default_factory=lambda: os.getenv("SMARTDESK_VERBOSE", "true").lower() != "false"
+    )
+
     # ── LangSmith observability ───────────────────────────────────────────────
     # LangGraph auto-traces every graph.invoke() when tracing is enabled.
     # call_llm() is additionally decorated with @traceable so each LLM call

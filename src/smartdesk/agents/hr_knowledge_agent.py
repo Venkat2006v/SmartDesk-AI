@@ -19,6 +19,7 @@ from __future__ import annotations
 import os
 from typing import List
 
+from smartdesk._log import vprint
 from smartdesk.agents._llm import call_llm
 from smartdesk.guardrails.grounding import (
     GROUNDED_SYSTEM_INSTRUCTIONS,
@@ -75,16 +76,16 @@ def _escalation_message(confidence: float) -> str:
 def hr_knowledge_node(state: AgentState) -> AgentState:
     """LangGraph node: retrieve HR docs, generate grounded answer or escalate."""
     query = state.get("query", "")
-    print(f"[hr_kb] Retrieving for: {query!r}")
+    vprint(f"[hr_kb] Retrieving for: {query!r}")
 
     # 1. Retrieve
     chunks = retrieve(query, domain="hr")
-    print(f"[hr_kb] Retrieved {len(chunks)} chunks "
-          f"(top score: {chunks[0]['score']:.3f})" if chunks else "[hr_kb] No chunks found")
+    vprint(f"[hr_kb] Retrieved {len(chunks)} chunks "
+           f"(top score: {chunks[0]['score']:.3f})" if chunks else "[hr_kb] No chunks found")
 
     # 2. Escalation decision
     should_escalate, confidence = decide_escalation(query, chunks)
-    print(f"[hr_kb] escalate={should_escalate}, confidence={confidence:.3f}")
+    vprint(f"[hr_kb] escalate={should_escalate}, confidence={confidence:.3f}")
 
     if should_escalate:
         return {
@@ -101,7 +102,7 @@ def hr_knowledge_node(state: AgentState) -> AgentState:
 
     # Optional grounding check — warn but don't block
     if not check_grounding(answer, chunks):
-        print("[hr_kb] ⚠ Grounding check failed — answer may contain hallucinated content")
+        vprint("[hr_kb] ⚠ Grounding check failed — answer may contain hallucinated content")
 
     # 4. Append source citations + confidence label  ← this is what enhances state["response"]
     enhanced_response = answer + _build_citation_footer(chunks, confidence)

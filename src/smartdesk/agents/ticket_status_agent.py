@@ -9,6 +9,7 @@ Flow:
 
 from __future__ import annotations
 
+from smartdesk._log import vprint
 from smartdesk.agents._llm import call_llm
 from smartdesk.guardrails.validation import is_valid_email
 from smartdesk.orchestrator.state import AgentState
@@ -83,7 +84,7 @@ def ticket_status_node(state: AgentState) -> AgentState:
 
     # ── Step 3: Format response ────────────────────────────────────────────
     response = _format_tickets(email, tickets)
-    print(f"[ticket_status] Found {len(tickets)} ticket(s) for {email!r}")
+    vprint(f"[ticket_status] Found {len(tickets)} ticket(s) for {email!r}")
 
     return {**state, "email": email, "response": response}
 

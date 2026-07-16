@@ -1,7 +1,7 @@
 """Mock ticketing client — fully implemented.
 
-Use this to build/test the full pipeline without real API credentials.
-Swap in RealTicketingClient when you're ready for the real integration.
+Provides an in-memory ticketing backend for development and testing.
+Switch to a real integration (Jira, Asana, etc.) via the TICKETING_PROVIDER env var.
 """
 
 from __future__ import annotations

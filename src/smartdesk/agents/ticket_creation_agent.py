@@ -18,6 +18,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ValidationError
 
+from smartdesk._log import vprint
 from smartdesk.agents._llm import call_llm, call_llm_json
 from smartdesk.guardrails.validation import is_valid_email, with_retry
 from smartdesk.orchestrator.state import AgentState
@@ -136,7 +137,7 @@ def ticket_creation_node(state: AgentState) -> AgentState:
         f"Category : {category or 'IT Support'}\n"
         f"Priority : {priority or 'Medium'}"
     )
-    print(f"[ticket_creation] Requesting HITL confirmation for: {summary!r}")
+    vprint(f"[ticket_creation] Requesting HITL confirmation for: {summary!r}")
     confirmed = confirm_action(summary=hitl_summary, description=hitl_detail)
 
     if not confirmed:
@@ -166,7 +167,7 @@ def ticket_creation_node(state: AgentState) -> AgentState:
 
     try:
         ticket = _create()
-        print(f"[ticket_creation] Created ticket {ticket['id']!r}")
+        vprint(f"[ticket_creation] Created ticket {ticket['id']!r}")
     except Exception as exc:
         return {
             **state,
@@ -224,13 +225,13 @@ def _extract_ticket_fields(query: str) -> tuple[str, str, str, str]:
         )
     except ValidationError as exc:
         # Pydantic caught an invalid category or priority — use defaults
-        print(f"[ticket_creation] Schema validation failed: {exc!r} — applying defaults")
+        vprint(f"[ticket_creation] Schema validation failed: {exc!r} — applying defaults")
         # Still extract what we can from the raw dict
         summary = str(data.get("summary", query[:80])).strip()  # type: ignore[possibly-undefined]
         description = str(data.get("description", query)).strip()
         return summary, description, "IT Support", "Medium"
     except Exception as exc:
-        print(f"[ticket_creation] Field extraction failed: {exc!r} — using query as summary")
+        vprint(f"[ticket_creation] Field extraction failed: {exc!r} — using query as summary")
         return query[:80].strip(), query.strip(), "IT Support", "Medium"
 
 

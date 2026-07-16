@@ -14,6 +14,7 @@ parse it without regex gymnastics. Temperature is 0 for determinism.
 
 from __future__ import annotations
 
+from smartdesk._log import vprint
 from smartdesk.agents._llm import call_llm
 from smartdesk.guardrails.validation import is_valid_email
 from smartdesk.orchestrator.state import AgentState, Route
@@ -76,7 +77,7 @@ def classify(state: AgentState) -> Route:
 
     except Exception as exc:
         # Never crash the pipeline — default to off_topic on LLM failure
-        print(f"[supervisor] classify() error: {exc!r} — defaulting to off_topic")
+        vprint(f"[supervisor] classify() error: {exc!r} — defaulting to off_topic")
         return "off_topic"
 
 
@@ -89,12 +90,12 @@ def supervisor_node(state: AgentState) -> AgentState:
     if is_valid_email(query):
         pending = state.get("pending_action")
         if pending == "ticket_status":
-            print(f"[supervisor] route → 'ticket_status' (email reply for ticket lookup)")
+            vprint(f"[supervisor] route → 'ticket_status' (email reply for ticket lookup)")
             return {**state, "email": query, "pending_action": None, "route": "ticket_status"}
         if state.get("ticket_summary"):
-            print(f"[supervisor] route → 'create_ticket' (email reply for pending ticket)")
+            vprint(f"[supervisor] route → 'create_ticket' (email reply for pending ticket)")
             return {**state, "email": query, "route": "create_ticket"}
 
     route = classify(state)
-    print(f"[supervisor] route → {route!r}")
+    vprint(f"[supervisor] route → {route!r}")
     return {**state, "route": route}
