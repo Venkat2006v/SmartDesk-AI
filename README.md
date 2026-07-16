@@ -1,9 +1,10 @@
-# SmartDesk AI — IT & HR Operations Agent
+# SmartDesk AI — Intelligent IT & HR Helpdesk Agent
 
-A multi-agent, RAG-grounded helpdesk assistant that answers IT and HR policy
-questions from a hybrid knowledge base, creates support tickets with mandatory
-human-in-the-loop (HITL) confirmation, and checks the status of existing
-tickets — all routed by a Supervisor agent built on LangGraph.
+SmartDesk AI is a production-style, multi-agent helpdesk assistant built with
+LangGraph and Qdrant. It answers IT and HR policy questions from a hybrid
+knowledge base using RAG, creates support tickets with mandatory human-in-the-loop
+(HITL) confirmation, and looks up existing tickets by email — all orchestrated
+by a Supervisor agent that routes each query to the right specialist.
 
 ## Capabilities
 
@@ -29,10 +30,10 @@ A Supervisor agent uses the LLM to classify each query into one of six routes:
 | Orchestration | [LangGraph](https://github.com/langchain-ai/langgraph) `StateGraph` |
 | Vector store | [Qdrant](https://qdrant.tech) — local embedded mode (no Docker needed) |
 | Dense embeddings | OpenAI `text-embedding-3-small` or fastembed (local, free) |
-| Sparse embeddings | fastembed BM25 (`Qdrant/bm25`) — hybrid search bonus |
+| Sparse embeddings | fastembed BM25 (`Qdrant/bm25`) — hybrid search |
 | LLM | OpenAI (`gpt-4o-mini` default) or Anthropic |
 | Ticketing | Mock in-memory client (swap `TICKETING_PROVIDER=jira` for live Jira) |
-| UI (bonus) | Gradio 6 chat interface |
+| UI | Gradio chat interface |
 
 ## Architecture
 
@@ -123,7 +124,7 @@ SmartDesk-AI/
 │   │   ├── grounding.py           # build_grounded_prompt + check_grounding
 │   │   └── validation.py          # is_valid_email + with_retry decorator
 │   ├── evaluation/
-│   │   └── eval_pipeline.py       # RAG eval harness — faithfulness, precision, relevance (pending)
+│   │   └── eval_pipeline.py       # RAG eval harness — faithfulness, precision, relevance
 │   └── ui/
 │       └── app.py                 # Gradio 6 chat UI with multi-turn HITL
 ├── scripts/
@@ -192,9 +193,8 @@ This populates `data/processed/vector_index/` (local Qdrant, no Docker needed).
 python -m smartdesk.main
 ```
 
-**Gradio UI (bonus):**
+**Gradio UI:**
 ```bash
-pip install gradio
 python src/smartdesk/ui/app.py
 ```
 
@@ -431,7 +431,7 @@ path is always testable.
 
 ---
 
-## Knowledge base design (Option C)
+## Knowledge base design
 
 The KB combines two sources deliberately:
 
@@ -451,7 +451,7 @@ vector (keyword/BM25). At query time:
 
 The system degrades gracefully to dense-only if sparse embeddings are not configured.
 
-This satisfies the **hybrid search bonus rubric item**.
+Both signals are fused at query time for stronger retrieval than either approach alone.
 
 ## HITL flow
 
