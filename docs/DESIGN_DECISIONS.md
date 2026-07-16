@@ -129,6 +129,22 @@ confidence      = chunks[0]["score"]   # Qdrant cosine similarity, 0.0–1.0
 `CONFIDENCE_THRESHOLD=0.0`. Costs one extra API call per query but is more
 semantically aware. Trade-off: latency and cost vs. accuracy on edge cases.
 
+**Note — escalation threshold vs. response confidence label:**
+The escalation decision (`should_escalate`) and the confidence label shown in
+the response footer (`High / Medium / Low`) are two separate mechanisms:
+
+| Score range | Escalation decision | Response footer label |
+|---|---|---|
+| < 0.4 | Escalate — no answer, suggest ticket | — (never reached) |
+| 0.4 – 0.7 | Answer | Medium |
+| ≥ 0.7 | Answer | High |
+
+A "Medium (52%)" label in a response means the retrieval score was above the
+escalation threshold (so answering is correct) but below the High band. It is
+a transparency signal to the user — not an indication that the answer should
+have been withheld. Escalation is triggered exclusively by the threshold check;
+the label is informational only.
+
 ---
 
 ## 7. Ticketing — MockTicketingClient + Jira live integration
