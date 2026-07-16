@@ -121,6 +121,34 @@ DEFAULT_TEST_SUITE: List[EvalCase] = [
         "category": "it_covered",
         "notes": "Wi-Fi troubleshooting — covered IT topic",
     },
+    {
+        "query": "SSO login keeps failing — what should I do?",
+        "expected_route": "it_kb",
+        "should_escalate": False,
+        "category": "it_covered",
+        "notes": "SSO login failure troubleshooting — covered by SSO failures doc",
+    },
+    {
+        "query": "LDAP directory sync errors — how do I fix them?",
+        "expected_route": "it_kb",
+        "should_escalate": False,
+        "category": "it_covered",
+        "notes": "LDAP sync errors — covered by LDAP troubleshooting doc",
+    },
+    {
+        "query": "My MFA TOTP code is rejected at the SSO portal",
+        "expected_route": "it_kb",
+        "should_escalate": False,
+        "category": "it_covered",
+        "notes": "TOTP rejection troubleshooting — covered by MFA/TOTP docs",
+    },
+    {
+        "query": "How do I request access to a new software tool?",
+        "expected_route": "it_kb",
+        "should_escalate": False,
+        "category": "it_covered",
+        "notes": "Software access request — covered by software access request doc",
+    },
     # ── IT escalation (should escalate — topic not in KB) ────────────────────
     {
         "query": "How do I provision EC2 instances for my team?",
