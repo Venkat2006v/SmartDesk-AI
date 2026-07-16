@@ -27,11 +27,12 @@ fastembed>=0.3.0          # bundled sparse (BM25/SPLADE) + dense models for hybr
 # notion-client>=2.0.0
 
 # --- Evaluation (bonus) ---
+langsmith>=0.1.0           # LangSmith tracing + evaluation SDK
 # ragas>=0.1.0
 # deepeval>=1.0.0
 
 # --- UI (bonus) ---
-# gradio>=4.40.0
+gradio>=5.50.0,<6.0  # <6.0 keeps huggingface-hub<1.0 for fastembed compat; 4.x has a starlette templating bug
 
 # --- Testing ---
 pytest>=8.0.0

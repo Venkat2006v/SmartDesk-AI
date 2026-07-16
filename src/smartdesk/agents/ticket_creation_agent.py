@@ -118,6 +118,18 @@ def ticket_creation_node(state: AgentState) -> AgentState:
         }
 
     # ── Step 3: HITL confirmation ──────────────────────────────────────────
+    import os
+    if os.environ.get("HITL_MODE") == "ui":
+        # In UI mode, confirmation is handled by app.py as a multi-turn exchange.
+        # Return the ticket fields in state so the UI can show the yes/no prompt.
+        return {
+            **state,
+            "email": email,
+            "ticket_summary": summary,
+            "ticket_description": description,
+            "route": "create_ticket",
+        }
+
     hitl_summary = f"Create ticket: {summary}"
     hitl_detail = (
         f"{description}\n\n"

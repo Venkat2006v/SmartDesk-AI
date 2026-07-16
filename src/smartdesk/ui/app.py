@@ -51,19 +51,26 @@ def _respond(
     history: list,
     session_email: str,
     pending_ticket: dict | None,
-) -> tuple[str, list, str, dict | None]:
-    """Process one user turn and return (response, updated_history, email, pending_ticket)."""
+    session_ticket_summary: str | None,
+    session_ticket_description: str | None,
+    session_pending_action: str | None,
+) -> tuple[str, list, str, dict | None, str | None, str | None, str | None]:
+    """Process one user turn.
+
+    Returns:
+        (cleared_input, history, email, pending_ticket,
+         ticket_summary, ticket_description, pending_action)
+    """
     message = message.strip()
     if not message:
-        return "", history, session_email, pending_ticket
+        return "", history, session_email, pending_ticket, session_ticket_summary, session_ticket_description, session_pending_action
 
     # ── HITL confirmation turn ──────────────────────────────────────────────
     if pending_ticket:
         answer = message.lower()
         if answer in {"yes", "y", "confirm", "ok", "yeah", "yep"}:
-            # Replay ticket creation with ticket_confirmed=True
             from smartdesk.tools.ticketing import get_ticketing_client
-            from smartdesk.guardrails.validation import is_valid_email, with_retry
+            from smartdesk.guardrails.validation import with_retry
 
             email = pending_ticket.get("email", session_email or "")
             summary = pending_ticket.get("summary", "")
@@ -87,19 +94,22 @@ def _respond(
 
             history.append({"role": "user", "content": message})
             history.append({"role": "assistant", "content": bot_msg})
-            return "", history, email or session_email, None  # clear pending
+            # Clear ticket fields after creation
+            return "", history, email or session_email, None, None, None, None
 
         else:
-            # User declined
             bot_msg = "Ticket creation cancelled. Let me know if you need anything else."
             history.append({"role": "user", "content": message})
             history.append({"role": "assistant", "content": bot_msg})
-            return "", history, session_email, None
+            return "", history, session_email, None, None, None, None
 
     # ── Normal query turn ────────────────────────────────────────────────────
     initial_state = {
         "query": message,
         "email": session_email or None,
+        "ticket_summary": session_ticket_summary or None,
+        "ticket_description": session_ticket_description or None,
+        "pending_action": session_pending_action or None,
     }
 
     try:
@@ -108,38 +118,48 @@ def _respond(
         bot_msg = f"Sorry, I ran into an error: {exc}"
         history.append({"role": "user", "content": message})
         history.append({"role": "assistant", "content": bot_msg})
-        return "", history, session_email, None
+        return "", history, session_email, None, session_ticket_summary, session_ticket_description, session_pending_action
 
-    # Update session email if resolved this turn
+    # Cache session state from result
     resolved_email = result.get("email") or session_email
+    new_ticket_summary = result.get("ticket_summary") or session_ticket_summary
+    new_ticket_description = result.get("ticket_description") or session_ticket_description
+    new_pending_action = result.get("pending_action") or None
+
+    # Clear ticket fields after successful creation
+    if result.get("ticket_id"):
+        new_ticket_summary = None
+        new_ticket_description = None
 
     response = result.get("response", "[no response]")
 
     # ── Detect HITL-pending state from ticket creation ───────────────────────
-    # In UI mode, ticket_creation_node returns a confirmation-request message.
-    # Detect it by checking if route was create_ticket and no ticket_id yet.
+    # Only show confirmation prompt when we have BOTH a ticket summary AND an email.
+    # If email is missing, the agent already asked for it — wait for the next turn.
     new_pending: dict | None = None
     if (
         result.get("route") == "create_ticket"
         and not result.get("ticket_id")
-        and result.get("ticket_summary")
+        and new_ticket_summary
+        and resolved_email  # must have email before offering yes/no
     ):
-        # Append a HITL confirmation prompt to the response
-        summary = result.get("ticket_summary", "")
-        description = result.get("ticket_description", "")
-        email_for_ticket = result.get("email") or resolved_email or ""
+        summary = new_ticket_summary
+        description = new_ticket_description or ""
         response += (
             f"\n\n📋 **Proposed ticket:**\n"
             f"  Summary     : {summary}\n"
-            f"  For email   : {email_for_ticket}\n"
+            f"  For email   : {resolved_email}\n"
             f"  Description : {description[:120]}{'...' if len(description) > 120 else ''}\n\n"
             f"Shall I create this ticket? Type **yes** to confirm or **no** to cancel."
         )
-        new_pending = {"summary": summary, "description": description, "email": email_for_ticket}
+        new_pending = {"summary": summary, "description": description, "email": resolved_email}
+        # Don't need to persist these in state — they're in pending_ticket now
+        new_ticket_summary = None
+        new_ticket_description = None
 
     history.append({"role": "user", "content": message})
     history.append({"role": "assistant", "content": response})
-    return "", history, resolved_email, new_pending
+    return "", history, resolved_email, new_pending, new_ticket_summary, new_ticket_description, new_pending_action
 
 
 # ---------------------------------------------------------------------------
@@ -153,13 +173,6 @@ with gr.Blocks(title="SmartDesk AI", theme=gr.themes.Soft()) as demo:
         "or create/check support tickets."
     )
 
-    with gr.Row():
-        email_box = gr.Textbox(
-            label="Your email (required for ticket operations)",
-            placeholder="you@company.com",
-            scale=3,
-        )
-
     chatbot = gr.Chatbot(label="SmartDesk AI", height=480, type="messages")
     msg_box = gr.Textbox(
         label="Your question",
@@ -168,22 +181,18 @@ with gr.Blocks(title="SmartDesk AI", theme=gr.themes.Soft()) as demo:
     )
     send_btn = gr.Button("Send", variant="primary")
 
-    # Hidden state for multi-turn HITL
+    # Hidden state — mirrors CLI session vars
+    email_state = gr.State("")
     pending_state = gr.State(None)
+    ticket_summary_state = gr.State(None)
+    ticket_description_state = gr.State(None)
+    pending_action_state = gr.State(None)
 
-    def _submit(message, history, email, pending):
-        return _respond(message, history, email, pending)
+    _inputs  = [msg_box, chatbot, email_state, pending_state, ticket_summary_state, ticket_description_state, pending_action_state]
+    _outputs = [msg_box, chatbot, email_state, pending_state, ticket_summary_state, ticket_description_state, pending_action_state]
 
-    send_btn.click(
-        _submit,
-        inputs=[msg_box, chatbot, email_box, pending_state],
-        outputs=[msg_box, chatbot, email_box, pending_state],
-    )
-    msg_box.submit(
-        _submit,
-        inputs=[msg_box, chatbot, email_box, pending_state],
-        outputs=[msg_box, chatbot, email_box, pending_state],
-    )
+    send_btn.click(_respond, inputs=_inputs, outputs=_outputs)
+    msg_box.submit(_respond, inputs=_inputs, outputs=_outputs)
 
     gr.Examples(
         examples=[
@@ -199,4 +208,9 @@ with gr.Blocks(title="SmartDesk AI", theme=gr.themes.Soft()) as demo:
 
 
 if __name__ == "__main__":
-    demo.launch(show_error=True)
+    demo.launch(
+        server_name="127.0.0.1",
+        server_port=7860,
+        show_error=True,
+        share=False,
+    )
