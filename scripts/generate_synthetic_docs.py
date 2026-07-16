@@ -42,10 +42,10 @@ IT_TOPICS: list[str] = [
     "How to access shared network drives and file shares",
     "Outlook / email client setup on a new device",
     "How to submit an IT support ticket and what to include",
-    "LDAP (Lightweight Directory Access Protocol) setup and troubleshooting",
+    "LDAP (Lightweight Directory Access Protocol) setup, directory sync errors, and troubleshooting",
     "MFA (Multi-Factor Authentication) setup and troubleshooting",
     "TOTP (Time-Based One-Time Password) setup and troubleshooting",
-    "SSO (Single Sign-On) setup and troubleshooting"
+    "SSO (Single Sign-On) login failures: troubleshooting persistent login errors, authentication loops, account lockouts, and session issues"
 ]
 
 HR_TOPICS: list[str] = [

@@ -1,0 +1,5 @@
+{
+  "title": "LDAP Setup and Directory Sync Troubleshooting",
+  "text": "Q: How do I set up LDAP and troubleshoot directory sync errors?\nA: To set up LDAP, you first need to ensure you have the correct server address and credentials. Windows: Open 'Control Panel', navigate to 'Administrative Tools', and select 'Active Directory Users and Computers'. Right-click your domain and select 'Properties' to find the LDAP settings. macOS: Open 'System Preferences', select 'Users & Groups', and click on 'Login Options'. Here, you can configure the LDAP server settings. After setting up, if you encounter directory sync errors, check the logs for any error messages. Windows: You can view logs in 'Event Viewer' under 'Windows Logs' > 'Application'. macOS: Check the Console app for any relevant error messages. Common issues include incorrect credentials or network connectivity problems. Ensure your firewall settings allow LDAP traffic. If errors persist, try restarting the LDAP service on the server and re-attempt the sync. If you still face issues, contact the IT helpdesk with specific error messages for further assistance.",
+  "source": "synthetic-llm"
+}
