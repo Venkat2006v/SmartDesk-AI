@@ -4,12 +4,23 @@ version = "0.1.0"
 description = "SmartDesk AI - IT & HR Operations Agent (capstone project)"
 requires-python = ">=3.10"
 dependencies = [
-    "langsmith>=0.1.0",   # LangSmith tracing — no-op when LANGCHAIN_TRACING_V2 is unset
+    # Core
+    "python-dotenv>=1.0.0",
+    "pydantic>=2.0.0",
+    # Orchestration
+    "langgraph>=0.2.0",
+    # Vector store + embeddings
+    "qdrant-client>=1.10.0",
+    "fastembed>=0.3.0",
+    # Observability
+    "langsmith>=0.1.0",
+    # UI
+    "gradio>=5.50.0,<6.0",
 ]
 
 [project.optional-dependencies]
 dev = [
-    "pytest>=7.0",
+    "pytest>=8.0.0",
     "pytest-mock>=3.0",
 ]
 

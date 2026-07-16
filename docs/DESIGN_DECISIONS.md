@@ -136,14 +136,23 @@ the response footer (`High / Medium / Low`) are two separate mechanisms:
 | Score range | Escalation decision | Response footer label |
 |---|---|---|
 | < 0.4 | Escalate — no answer, suggest ticket | — (never reached) |
-| 0.4 – 0.7 | Answer | Medium |
-| ≥ 0.7 | Answer | High |
+| 0.4 – 0.6 | Answer | Medium |
+| ≥ 0.6 | Answer | High |
 
 A "Medium (52%)" label in a response means the retrieval score was above the
 escalation threshold (so answering is correct) but below the High band. It is
 a transparency signal to the user — not an indication that the answer should
 have been withheld. Escalation is triggered exclusively by the threshold check;
 the label is informational only.
+
+**Why High starts at 0.6 (not 0.7):** Dense embedding cosine similarity scores
+from `text-embedding-3-small` do not behave like human-intuitive percentages.
+Even a near-perfect semantic match between differently-worded texts (e.g.
+"How do I connect to VPN?" vs. "Setting Up And Connecting To The Company VPN")
+typically lands in the 0.60–0.75 range — not 0.85+. A threshold of 0.7 would
+cause direct KB hits to show as "Medium" despite being accurate, well-grounded
+answers. Calibrating High to ≥ 0.6 aligns the label with what the score
+actually means in this embedding model's output space.
 
 ---
 

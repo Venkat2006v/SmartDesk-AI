@@ -46,7 +46,7 @@ def _source_label(source: str) -> str:
 
 
 def _confidence_label(score: float) -> str:
-    if score >= 0.7:
+    if score >= 0.6:
         return "High"
     if score >= 0.4:
         return "Medium"
