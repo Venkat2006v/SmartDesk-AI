@@ -102,10 +102,12 @@ class TestTicketCreationNode:
         """No extractable summary → response asks for more detail (no HITL)."""
         state = AgentState(query="help", email="venkat@company.com")
 
+        # _extract_ticket_fields uses call_llm_json (returns a dict, not a string),
+        # so we must patch that — not call_llm — to control what the extraction step sees.
         with (
             patch(
-                "smartdesk.agents.ticket_creation_agent.call_llm",
-                return_value='{"summary": "", "description": ""}',
+                "smartdesk.agents.ticket_creation_agent.call_llm_json",
+                return_value={"summary": "", "description": ""},
             ),
             patch("smartdesk.agents.ticket_creation_agent.confirm_action") as mock_confirm,
         ):
