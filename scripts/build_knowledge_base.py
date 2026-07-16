@@ -1,7 +1,6 @@
 """Build the Qdrant vector index from all knowledge-base sources.
 
-Run once (and again whenever the Knowledge Base updates are needed) 
-before starting the main app:
+Run once (and again whenever the KB changes) before starting the main app:
 
     python scripts/build_knowledge_base.py
 
