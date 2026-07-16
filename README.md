@@ -497,21 +497,3 @@ The 20-case test suite covers: IT covered, IT escalation, HR covered, HR escalat
 combined IT+HR, ticket create/status (routing-only), and off-topic. LLM judges are
 optional and can be skipped for CI or cost-sensitive runs.
 
-## Status
-
-| Component | Status |
-|---|---|
-| RAG pipeline (ingest → embed → retrieve) | ✅ Implemented |
-| Hybrid search (dense + sparse, Qdrant local) | ✅ Implemented |
-| Supervisor routing (LLM-based, 6-way) | ✅ Implemented |
-| IT / HR knowledge agents | ✅ Implemented |
-| Combined IT+HR synthesizer agent | ✅ Implemented |
-| Ticket creation agent + HITL | ✅ Implemented |
-| Jira live integration | ✅ Implemented |
-| Ticket status agent | ✅ Implemented |
-| LangGraph orchestrator | ✅ Implemented |
-| CLI entry point | ✅ Implemented |
-| Grounding guardrail + response enhancement | ✅ Implemented |
-| Gradio UI (bonus) | ✅ Implemented |
-| Evaluation pipeline (LLM-as-judge) | ✅ Implemented |
-| LangSmith observability | ✅ Implemented |
