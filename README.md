@@ -37,51 +37,14 @@ A Supervisor agent uses the LLM to classify each query into one of six routes:
 
 ## Architecture
 
-```
-                    ┌──────────────────────────────────┐
-                    │     User  (CLI · Gradio UI)       │
-                    └───────────────┬──────────────────┘
-                                    │ query
-                                    ▼
-                       ┌────────────────────────┐
-                       │    Supervisor Agent     │
-                       │  LLM zero-shot classify │
-                       │  → state["route"]       │
-                       └────────────┬────────────┘
-                                    │
-        ┌──────────┬────────────────┼──────────────┬──────────────┬──────────┐
-        ▼          ▼                ▼               ▼              ▼          ▼
-     it_kb      hr_kb         combined_kb    create_ticket  ticket_status  off_topic
-        │          │                │               │              │             │
-        └──────────┴────────────────┘               │              │         friendly
-                   │                                │              │         response
-   ┌───────────────────────────┐   ┌────────────────┴─────────────────────────────┐
-   │       RAG Pipeline        │   │              Ticketing Agents                │
-   ├───────────────────────────┤   ├──────────────────────────────────────────────┤
-   │ ① Qdrant hybrid search    │   │ create_ticket:                               │
-   │   dense (OpenAI/fastembed)│   │   ① LLM extract fields                      │
-   │   sparse (fastembed BM25) │   │      summary · description                   │
-   │                           │   │      category · priority                     │
-   │ ② decide_escalation()     │   │   ② validate email (regex)                   │
-   │   score < threshold       │   │   ③ HITL confirm_action()                    │
-   │   → escalation response   │   │      CLI → blocks on input()                 │
-   │   score ≥ threshold       │   │      UI  → multi-turn exchange               │
-   │   → grounded answer       │   │   ④ create_ticket() @with_retry(×3)         │
-   │                           │   │                                              │
-   │ ③ build_grounded_prompt() │   │ ticket_status:                               │
-   │ ④ call_llm()              │   │   ① resolve email (via LLM extraction)      │
-   │ ⑤ check_grounding()       │   │   ② get_tickets_by_email()                  │
-   │ ⑥ response                │   │   ③ format: 0 / 1 / N tickets              │
-   │   + source citations      │   └──────────────────────────────────────────────┘
-   │   + confidence label      │
-   └───────────────────────────┘
-                   │                                        │
-                   └────────────────────────────────────────┘
-                                    │
-                                    ▼
-                          state["response"] → User
-```
+![SmartDesk AI Architecture](docs/architecture.svg)
 
+> **Two distinct paths:**
+> - **Knowledge Path** (green) — KB agents retrieve from Qdrant via hybrid RAG (dense + sparse), then synthesize an answer via LLM.
+> - **Action Path** (amber/dashed) — Ticket and Off-topic agents call external services directly, bypassing RAG entirely.
+>
+> Editable source: `docs/architecture.drawio` — open at [diagrams.net](https://app.diagrams.net) or export to Visio.
+>
 > For detailed architecture documentation and design decisions see [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) and [`docs/DESIGN_DECISIONS.md`](docs/DESIGN_DECISIONS.md).
 
 ## Project layout
