@@ -43,8 +43,6 @@ A Supervisor agent uses the LLM to classify each query into one of six routes:
 > - **Knowledge Path** (green) — KB agents retrieve from Qdrant via hybrid RAG (dense + sparse), then synthesize an answer via LLM.
 > - **Action Path** (amber/dashed) — Ticket and Off-topic agents call external services directly, bypassing RAG entirely.
 >
-> Editable source: `docs/architecture.drawio` — open at [diagrams.net](https://app.diagrams.net) or export to Visio.
->
 > For detailed architecture documentation and design decisions see [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) and [`docs/DESIGN_DECISIONS.md`](docs/DESIGN_DECISIONS.md).
 
 ## Project layout
