@@ -1,0 +1,5 @@
+{
+  "title": "Accessing Shared Network Drives and File Shares",
+  "text": "Q: How do I access shared network drives and file shares?\nA: Windows: Step 1 - Click on the 'File Explorer' icon on your taskbar. Step 2 - In the left pane, select 'This PC'. Step 3 - Click on 'Computer' in the top menu, then select 'Map network drive'. Step 4 - Choose a drive letter and enter the folder path (e.g., \\\\servername\\sharename). Step 5 - Check 'Reconnect at sign-in' if you want to access it automatically in the future, then click 'Finish'. Step 6 - If prompted, enter your network credentials in the format DOMAIN\\username. macOS: Step 1 - Open 'Finder' from your Dock. Step 2 - In the top menu, click 'Go', then select 'Connect to Server'. Step 3 - Enter the server address (e.g., smb://servername/sharename) in the dialog box. Step 4 - Click 'Connect'. Step 5 - If prompted, enter your network credentials (username and password). Step 6 - Once connected, the shared drive will appear on your desktop and in the Finder sidebar for easy access.",
+  "source": "synthetic-llm"
+}

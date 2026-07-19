@@ -192,6 +192,8 @@ python scripts/build_knowledge_base.py
 
 This populates `data/processed/vector_index/` (local Qdrant, no Docker needed).
 
+![RAG knowledge base build — chunking and embedding output](docs/screenshots/rag-build.png)
+
 ### 4. Run
 
 **CLI:**
@@ -208,6 +210,8 @@ python src/smartdesk/ui/app.py
 ```bash
 pytest tests/ -v
 ```
+
+![SmartDesk AI — Gradio UI + CLI demo](UI.gif)
 
 ---
 
@@ -559,4 +563,6 @@ python scripts/run_evaluation.py --output eval_results.json
 The 20-case test suite covers: IT covered, IT escalation, HR covered, HR escalation,
 combined IT+HR, ticket create/status (routing-only), and off-topic. LLM judges are
 optional and can be skipped for CI or cost-sensitive runs.
+
+![LangSmith — Datasets & Experiments results](docs/screenshots/eval-langsmith.png)
 

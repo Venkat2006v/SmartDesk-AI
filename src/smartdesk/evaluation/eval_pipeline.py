@@ -661,3 +661,212 @@ def print_report(report: EvalReport) -> None:
 
     print()
     print("═" * 62)
+
+
+# ---------------------------------------------------------------------------
+# LangSmith Datasets & Experiments push
+# ---------------------------------------------------------------------------
+
+def push_to_langsmith(
+    test_cases: List[EvalCase],
+    graph: Any,
+    *,
+    dataset_name: str = "SmartDesk AI Eval Suite",
+    experiment_prefix: str = "smartdesk-eval",
+    skip_llm_judges: bool = False,
+) -> None:
+    """Push eval test cases and results to LangSmith Datasets & Experiments.
+
+    This creates (or resets) a named dataset in LangSmith from the test cases,
+    then runs ``langsmith.evaluate()`` against it so results appear in the
+    Datasets & Experiments tab — separate from the Tracing/Projects view.
+
+    Requires:
+      - LANGCHAIN_API_KEY set in .env
+      - LANGCHAIN_TRACING_V2=true set in .env
+      - pip install langsmith
+
+    Args:
+        test_cases:        The same list passed to run_evaluation().
+        graph:             Compiled LangGraph graph from build_orchestrator().
+        dataset_name:      LangSmith dataset name (created if it doesn't exist).
+        experiment_prefix: Prefix for the experiment name shown in LangSmith UI.
+        skip_llm_judges:   Skip faithfulness + relevance LLM evaluators.
+    """
+    try:
+        from langsmith import Client
+        from langsmith import evaluate as ls_evaluate
+    except ImportError:
+        print(
+            "[langsmith] langsmith package not found.\n"
+            "            Run: pip install langsmith\n"
+            "            Skipping Datasets & Experiments push."
+        )
+        return
+
+    from smartdesk.config import settings
+    if not settings.langchain_api_key:
+        print(
+            "[langsmith] LANGCHAIN_API_KEY not set in .env — "
+            "skipping Datasets & Experiments push."
+        )
+        return
+
+    client = Client()
+
+    # ── Step 1: Create or reset dataset ─────────────────────────────────────
+    print(f"\n[langsmith] Preparing dataset '{dataset_name}'...")
+    if client.has_dataset(dataset_name=dataset_name):
+        dataset = client.read_dataset(dataset_name=dataset_name)
+        # Delete existing examples so the dataset stays in sync with test_cases
+        existing = list(client.list_examples(dataset_id=dataset.id))
+        for ex in existing:
+            client.delete_example(ex.id)
+        print(f"[langsmith] Cleared {len(existing)} existing example(s).")
+    else:
+        dataset = client.create_dataset(
+            dataset_name=dataset_name,
+            description=(
+                "SmartDesk AI evaluation suite — routing accuracy, "
+                "escalation precision/recall, RAG faithfulness & relevance."
+            ),
+        )
+        print(f"[langsmith] Created new dataset '{dataset_name}'.")
+
+    # ── Step 2: Upload examples ──────────────────────────────────────────────
+    client.create_examples(
+        inputs=[
+            {
+                "query": c["query"],
+                "routing_only": c.get("routing_only", False),
+            }
+            for c in test_cases
+        ],
+        outputs=[
+            {
+                "expected_route": c["expected_route"],
+                "should_escalate": c["should_escalate"],
+            }
+            for c in test_cases
+        ],
+        metadata=[
+            {"category": c["category"], "notes": c.get("notes", "")}
+            for c in test_cases
+        ],
+        dataset_id=dataset.id,
+    )
+    print(f"[langsmith] Uploaded {len(test_cases)} example(s).")
+
+    # ── Step 3: Define target function ───────────────────────────────────────
+    from smartdesk.agents.supervisor import supervisor_node
+    from smartdesk.orchestrator.graph import run_once
+
+    def _target(inputs: dict) -> dict:
+        """Runs one test case through SmartDesk; returns outputs for evaluators."""
+        query = inputs["query"]
+        routing_only = inputs.get("routing_only", False)
+
+        if routing_only:
+            sup_state = supervisor_node({"query": query})
+            return {
+                "query": query,
+                "route": sup_state.get("route", "off_topic"),
+                "should_escalate": False,
+                "response": "[routing-only — downstream not run]",
+                "confidence_score": 0.0,
+                "retrieved_chunks": [],
+            }
+
+        result = run_once(graph, {"query": query})
+        return {
+            "query": query,
+            "route": result.get("route", "off_topic"),
+            "should_escalate": result.get("should_escalate", False),
+            "response": result.get("response", ""),
+            "confidence_score": result.get("confidence_score", 0.0),
+            "retrieved_chunks": result.get("retrieved_chunks", []),
+        }
+
+    # ── Step 4: Define evaluators ────────────────────────────────────────────
+
+    def _eval_route(outputs: dict, reference_outputs: dict) -> dict:
+        correct = outputs.get("route") == reference_outputs.get("expected_route")
+        return {"key": "route_correct", "score": int(correct)}
+
+    def _eval_escalation(outputs: dict, reference_outputs: dict) -> dict:
+        # routing_only cases are excluded — always pass
+        if outputs.get("route") in ("create_ticket", "ticket_status"):
+            return {"key": "escalation_correct", "score": 1}
+        correct = (
+            outputs.get("should_escalate") == reference_outputs.get("should_escalate")
+        )
+        return {"key": "escalation_correct", "score": int(correct)}
+
+    def _eval_confidence(outputs: dict, reference_outputs: dict) -> dict:
+        return {
+            "key": "confidence_score",
+            "score": round(float(outputs.get("confidence_score", 0.0)), 4),
+        }
+
+    evaluators = [_eval_route, _eval_escalation, _eval_confidence]
+
+    if not skip_llm_judges:
+        def _eval_faithfulness(outputs: dict, reference_outputs: dict) -> dict:
+            route = outputs.get("route", "")
+            if route not in ("it_kb", "hr_kb", "combined_kb"):
+                return {"key": "faithfulness", "score": None}
+            if outputs.get("should_escalate"):
+                return {"key": "faithfulness", "score": None}
+            score = _judge_faithfulness(
+                outputs.get("query", ""),
+                outputs.get("response", ""),
+                outputs.get("retrieved_chunks", []),
+            )
+            return {"key": "faithfulness", "score": score}
+
+        def _eval_relevance(outputs: dict, reference_outputs: dict) -> dict:
+            route = outputs.get("route", "")
+            if route not in ("it_kb", "hr_kb", "combined_kb"):
+                return {"key": "relevance", "score": None}
+            if outputs.get("should_escalate"):
+                return {"key": "relevance", "score": None}
+            score = _judge_relevance(
+                outputs.get("query", ""),
+                outputs.get("response", ""),
+            )
+            return {"key": "relevance", "score": score}
+
+        evaluators.extend([_eval_faithfulness, _eval_relevance])
+
+    # ── Step 5: Run experiment ───────────────────────────────────────────────
+    from datetime import datetime, timezone
+    suffix = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M")
+    full_prefix = f"{experiment_prefix}-{suffix}"
+
+    print(f"[langsmith] Running experiment '{full_prefix}' ({len(test_cases)} cases)...")
+    print("            This reruns each query through the graph — may take a moment.\n")
+
+    results = ls_evaluate(
+        _target,
+        data=dataset_name,
+        evaluators=evaluators,
+        experiment_prefix=full_prefix,
+        metadata={
+            "project": "SmartDesk AI",
+            "suite": "full" if len(test_cases) > 6 else "minimal",
+            "skip_llm_judges": skip_llm_judges,
+        },
+    )
+
+    # Print URL — langsmith evaluate() returns an ExperimentResults object
+    try:
+        url = results._results[0].url if hasattr(results, "_results") else None
+    except Exception:
+        url = None
+
+    print("\n[langsmith] ✓ Experiment pushed to LangSmith.")
+    print("            Open: https://smith.langchain.com → Datasets & Experiments")
+    print(f"            Dataset : {dataset_name}")
+    print(f"            Experiment: {full_prefix}")
+    if url:
+        print(f"            Direct URL: {url}")

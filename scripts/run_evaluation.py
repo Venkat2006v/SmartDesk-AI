@@ -20,6 +20,12 @@ Usage:
 
     # Verbose — prints per-case progress during the run
     python scripts/run_evaluation.py --verbose
+
+    # Push results to LangSmith Datasets & Experiments tab
+    python scripts/run_evaluation.py --langsmith
+
+    # Combine flags
+    python scripts/run_evaluation.py --langsmith --skip-llm-judges --verbose
 """
 
 from __future__ import annotations
@@ -60,6 +66,15 @@ def main() -> None:
         action="store_true",
         help="Print per-case progress during the run",
     )
+    parser.add_argument(
+        "--langsmith",
+        action="store_true",
+        help=(
+            "Push results to LangSmith Datasets & Experiments. "
+            "Requires LANGCHAIN_API_KEY and LANGCHAIN_TRACING_V2=true in .env. "
+            "Reruns all queries through the graph a second time."
+        ),
+    )
     args = parser.parse_args()
 
     # ── Import pipeline ───────────────────────────────────────────────────────
@@ -68,6 +83,7 @@ def main() -> None:
             DEFAULT_TEST_SUITE,
             MINIMAL_TEST_SUITE,
             print_report,
+            push_to_langsmith,
             run_evaluation,
         )
     except ImportError as exc:
@@ -104,6 +120,16 @@ def main() -> None:
         with open(output_path, "w", encoding="utf-8") as f:
             json.dump(report, f, indent=2, ensure_ascii=False)
         print(f"\nResults saved → {output_path.resolve()}")
+
+    # ── LangSmith Datasets & Experiments push ────────────────────────────────
+    if args.langsmith:
+        from smartdesk.orchestrator.graph import build_orchestrator
+        graph = build_orchestrator()
+        push_to_langsmith(
+            test_cases=suite,
+            graph=graph,
+            skip_llm_judges=args.skip_llm_judges,
+        )
 
 
 if __name__ == "__main__":
