@@ -548,6 +548,9 @@ python scripts/run_evaluation.py --suite minimal --skip-llm-judges
 
 # Save JSON results
 python scripts/run_evaluation.py --output eval_results.json
+
+# Push results to LangSmith Datasets & Experiments
+python scripts/run_evaluation.py --langsmith
 ```
 
 **Metrics produced:**
