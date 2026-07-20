@@ -37,6 +37,9 @@ data/processed/qdrant_local/
 # data/knowledge_base/it_docs/*.json
 # data/knowledge_base/hr_docs/*.json
 
+# Diagram source — kept locally, not committed
+docs/architecture.drawio
+
 # OS / editor
 .DS_Store
 Thumbs.db
